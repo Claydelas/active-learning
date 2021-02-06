@@ -5,23 +5,23 @@ const io = require("socket.io-client");
 const socket = io('http://127.0.0.1:5000', {transports: ['websocket']});
 
 function alright(tweet) {
-  console.log(`"${tweet}" --> alright. --> 0`)
-  socket.emit("tweet", {'idx': 'idx', 'label': 0})
+  console.log(`"${tweet.text}" --> alright. --> 0`)
+  socket.emit("label", {'idx': tweet.idx, 'label': 0})
 }
 
 function malicious(tweet) {
-  console.log(`"${tweet}" --> malicious. --> 1`)
-  socket.emit("tweet", {'idx': 'idx', 'label': 1})
+  console.log(`"${tweet.text}" --> malicious. --> 1`)
+  socket.emit("label", {'idx': tweet.idx, 'label': 1})
 }
 
 function refresh() {
-  console.log(`refresh`)
+  console.log('refresh')
   socket.emit("refresh")
 }
 
 function App() {
 
-  const [tweet, setTweet] = useState("Tweet text will be displayed here");
+  const [tweet, setTweet] = useState({idx: -1, text: "Tweet text will be displayed here"});
   const [uncertainty, setUncertainty] = useState(0.00);
   const [progress, setProgress] = useState(0);
   const [total, setTotal] = useState(0);
@@ -37,13 +37,13 @@ function App() {
     <div className="App">
       <div className="App-main">
         <div className="tweet">
-          <span>{tweet}</span>
+          <span>{tweet.text}</span>
         </div>
         <div className="buttons">
-          <button onClick={() => alright(tweet)}>Alright</button>
-          <button onClick={() => malicious(tweet)}>Malicious</button>
-          <button onClick={() => console.log(`previous`)}>&lt;</button>
-          <button onClick={() => console.log(`next`)}>&gt;</button>
+          <button onClick={() => alright(tweet)} disabled={tweet.idx < 0}>Alright</button>
+          <button onClick={() => malicious(tweet)} disabled={tweet.idx < 0}>Malicious</button>
+          <button onClick={() => console.log(`previous`)} disabled={tweet.idx < 0}>&lt;</button>
+          <button onClick={() => console.log(`next`)} disabled={tweet.idx < 0}>&gt;</button>
           <button onClick={() => refresh()}>↻</button>
           <span>{uncertainty * 100}%</span>
         </div>
