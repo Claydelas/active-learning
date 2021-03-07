@@ -22,20 +22,49 @@ function refresh() {
 
 function App() {
 
-  const [tweet, setTweet] = useState({idx: -1, text: "Tweet text will be displayed here"});
-  const [uncertainty, setUncertainty] = useState(0.00);
-  const [progress, setProgress] = useState(0);
-  const [total, setTotal] = useState(0);
-  const [score, setScore] = useState(0.00);
-  const [targetScore, setTargetScore] = useState(80.00);
-  const [scoreSeries, setScoreSeries] = useState([]);
+  const [tweet, setTweet] = useState({idx: -1, text: "Tweet text will be displayed here"}); // queried tweet object
+  const [uncertainty, setUncertainty] = useState(0.00); // uncertainty of currently displayed tweet
+  const [progress, setProgress] = useState(0); // number of labeled data points in pool
+  const [total, setTotal] = useState(0); // total number of data points in pool
+  const [score, setScore] = useState(0.00); // current/latest f1-score
+  const [targetScore, setTargetScore] = useState(80.00); // threshold where active learning score aligns with non-AL
+  const [scoreSeries, setScoreSeries] = useState([{
+    labels: 1.00,
+    score: 10.03,
+  },
+  {
+    labels: 2.44,
+    score: 15.44,
+  },
+  {
+    labels: 5,
+    score: 20.11,
+  },
+  {
+    labels: 8,
+    score: 30.69,
+  },
+  {
+    labels: 20,
+    score: 50.78,
+  },
+  {
+    labels: 25,
+    score: 60.23,
+  },
+  {
+    labels: 50.64,
+    score: 85.67,
+  }]);
 
+  // on component mount listen for tweets from WS server
   useEffect(() => {
     socket.on("tweet", data => {
       setTweet(data)
     });
   }, []);
 
+  // on component mount listen for f1-score updates
   useEffect(() => {
     socket.on("score-data", data => {
       setScoreSeries(score => [...score, data]);
@@ -54,8 +83,8 @@ function App() {
         <div className="buttons">
           <button onClick={() => alright(tweet)} disabled={tweet.idx < 0}>Alright</button>
           <button onClick={() => malicious(tweet)} disabled={tweet.idx < 0}>Malicious</button>
-          <button onClick={() => console.log(`previous`)} disabled={tweet.idx < 0}>&lt;</button>
-          <button onClick={() => console.log(`next`)} disabled={tweet.idx < 0}>&gt;</button>
+          {/*<button onClick={() => console.log(`previous`)} disabled={tweet.idx < 0}>&lt;</button>
+          <button onClick={() => console.log(`next`)} disabled={tweet.idx < 0}>&gt;</button>*/}
           <button onClick={() => refresh()}>↻</button>
           <span>{uncertainty * 100}%</span>
         </div>
@@ -79,7 +108,7 @@ function App() {
               domain={['dataMin', 'dataMax']}
               tickFormatter={tick => `${tick}%`}
               padding={{ left: 20, right: 20 }}>
-              <Label value="labeled ratio" offset={-30} position="insideBottom" fill="#82ca9d" />
+              <Label value="labelled ratio" offset={-30} position="insideBottom" fill="#82ca9d" />
             </XAxis>
             <YAxis type="number"
               domain={[0, 100]}
@@ -88,7 +117,7 @@ function App() {
             </YAxis>
               <Tooltip formatter={score => [`${score}%`, "f1-score"]}
               labelStyle={{color: "#282c34"}}
-              labelFormatter={label => `labeled: ${label}%,`}
+              labelFormatter={label => `labelled: ${label}%,`}
               contentStyle={{borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px"}}
               itemStyle={{color: "#282c34"}}/>
             <ReferenceLine y={targetScore} stroke="#8884d8">
