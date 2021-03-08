@@ -18,6 +18,7 @@ from sklearn.metrics import classification_report
 from sklearn.feature_extraction.text import TfidfVectorizer
 import matplotlib.pyplot as plt
 
+import random
 
 import getopt, sys
 
@@ -40,7 +41,7 @@ logging.basicConfig(filename='server.log', level=logging.DEBUG, format='[%(ascti
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 try:
-    args, vals = getopt.getopt(sys.argv, 'd:s:a', ['dataset=', 'sampling=', 'auto'])
+    args, vals = getopt.getopt(sys.argv[1:], 'd:s:a', ['dataset=', 'sampling=', 'auto'])
 except getopt.error as err:
     logging.error(str(err))
     sys.exit(2)
@@ -67,42 +68,6 @@ for arg, val in args:
     elif arg in ("-a", "--auto"):
         logging.info('Semi-supervised label querying is enabled.')
         MANUAL = False
-        
-if MANUAL:
-    app = Flask('Active Learning')
-    sio = SocketIO(app, cors_allowed_origins='*')
-
-
-    @app.route('/')
-    def index():
-        return 'Server running on localhost:5000.'
-
-
-    # Start Web Server + Socket.IO
-    thread = threading.Thread(target=lambda: sio.run(app)).start()
-
-
-    @sio.on('connect')
-    def connect():
-        logging.info(f'Client connected: {request.sid}')
-        # TODO: on connect emit data samples for labeling
-
-
-    @sio.on('disconnect')
-    def disconnect():
-        logging.info(f'Client disconnected: {request.sid}')
-
-
-    @sio.on('refresh')
-    def refresh():
-        # TODO: Refresh AL process
-        print('refresh')
-
-
-    @sio.on('label')
-    def label(tweet):
-        # TODO: Teach new label
-        print(f'idx {tweet.idx}, label {tweet.label}')
 
 
 # normal script execution below:
@@ -207,51 +172,117 @@ feature_extract()
 df['clean'] = df.tweet.apply(clean)
 df = df.drop_duplicates(subset=['clean'], ignore_index=True)
 if not 'target' in df.columns: df['target'] = np.nan
-logging.info(df.count())
 
 # partition dataset if possible
 labeled_pool = df[df.target.notnull()]
+labeled_pool.reset_index(drop=True, inplace=True)
 unlabeled_pool = df[df.target.isnull()]
+unlabeled_pool.reset_index(drop=True, inplace=True)
+
+# note dataset size
+dataset_size = len(df.index)
+labeled_size = len(labeled_pool.index)
 
 # TODO: Utilise all features, not only clean text
 # split into training and testing subsets if possible 
-X_train, X_test, y_train, y_test = train_test_split(labeled_pool.clean, labeled_pool.target)
+## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target)
 # set up learning pool
-X_pool, y_pool = unlabeled_pool.clean, unlabeled_pool.target
+X_pool, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
 
 # initialise active learner model
 # TODO: allow supplying of estimator + h-params as command args
+classifier = LogisticRegression()
 learner = ActiveLearner(
-    estimator=LogisticRegression(),
-    query_strategy=QUERY_STRATEGY,
-    X_training=X_train, y_training=y_train
+    estimator = classifier,
+    query_strategy = QUERY_STRATEGY
 )
 
-# learning loop
-n_queries = 20
-accuracy_scores = [learner.score(X_test, y_test)]
-for i in range(n_queries):
-    
-    # retrieve most uncertain instance
-    query_idx, query_inst = learner.query(X_pool)
-    
-    # display this query in the front end
-    # TODO
-    
-    # retrieve new label
-    # TODO
-    y_new = np.array([int(input())], dtype=int) #input() is the new label after the user has answered the query
-    
+# accuracy_scores = [learner.score(X_test, y_test)]
+accuracy_scores = []
+
+def teach(tweet):
+    idx = int(tweet['idx'])
+    label = int(tweet['label'])
+
     # teach new sample
-    learner.teach(query_inst.reshape(1, -1), y_new)
-    
+    logging.info(f'Teaching instance: idx {idx}, label {label}, tweet: {X_pool.iloc[idx].tweet}')
+    y_new = np.array([label], dtype=int)
+    # TODO: transform text to vectors for fitting with teach
+    #learner.teach(X_pool.iloc[idx:idx+1], y_new)
+    global labeled_size
+    labeled_size += 1
+
     # remove learned sample from pool
-    X_pool, y_pool = np.delete(X_pool, query_idx, axis=0), np.delete(y_pool, query_idx, axis=0)
-    
+    global X_pool
+    global y_pool
+    X_pool.drop(df.index[idx], inplace=True)
+    X_pool.reset_index(drop=True, inplace=True)
+    y_pool.drop(df.index[idx], inplace=True)
+    y_pool.reset_index(drop=True, inplace=True)
+
     # store accuracy metric after training
-    accuracy_scores.append(learner.score(X_test, y_test))
-    
-# sample real-time clock for testing
-while True:
-    sio.emit('tweet', {'idx': 0, 'text': datetime.now().strftime("%H:%M:%S")})
-    sleep(1)
+    global accuracy_scores
+    # TODO: obtain test sets
+    # accuracy_scores.append(learner.score(X_test, y_test))
+    accuracy_scores.append({'queries': labeled_size, 'score': random.random()*100})
+
+def init():
+    # retrieve most uncertain instance
+    query_idx, query_sample = learner.query(X_pool)
+    idx = int(query_idx)
+
+    sio.emit('init', {
+            'idx': idx,
+            'text': X_pool.iloc[idx].tweet,
+            'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=classifier, X=query_sample)[0],
+            'series': accuracy_scores,
+            'strategy': 'uncertainty',
+            'labeled_size': labeled_size,
+            'dataset_size': dataset_size,
+            'score': accuracy_scores[-1]['score'] if accuracy_scores else 0
+            })
+
+def query():
+    # retrieve most uncertain instance
+    query_idx, query_sample = learner.query(X_pool)
+    idx = int(query_idx)
+
+    sio.emit('query', {
+            'idx': idx,
+            'text': X_pool.iloc[idx].tweet,
+            'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=classifier, X=query_sample)[0],
+            'labeled_size': labeled_size,
+            'series': accuracy_scores[-1],
+            'score': accuracy_scores[-1]['score']
+            })
+
+if MANUAL:
+    app = Flask('Active Learning')
+    sio = SocketIO(app, cors_allowed_origins='*')
+
+    @app.route('/')
+    def index():
+        return 'Server running on localhost:5000.'
+
+    @sio.on('connect')
+    def connect():
+        logging.info(f'Client connected: {request.sid}')
+        init()
+
+    @sio.on('disconnect')
+    def disconnect():
+        logging.info(f'Client disconnected: {request.sid}')
+
+    @sio.on('refresh')
+    def refresh():
+        logging.info(f'{request.sid} requested refresh.')
+        init()
+
+    @sio.on('label')
+    def label(tweet):
+        teach(tweet)
+        query()
+
+    # Start Web Server + Socket.IO
+    # thread = threading.Thread(target=lambda: sio.run(app)).start()
+    sio.run(app)
