@@ -187,6 +187,7 @@ labeled_size = len(labeled_pool.index)
 # split into training and testing subsets if possible 
 ## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target)
 # set up learning pool
+global X_pool, y_pool
 X_pool, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
 
 # initialise active learner model
@@ -213,8 +214,6 @@ def teach(tweet):
     labeled_size += 1
 
     # remove learned sample from pool
-    global X_pool
-    global y_pool
     X_pool.drop(df.index[idx], inplace=True)
     X_pool.reset_index(drop=True, inplace=True)
     y_pool.drop(df.index[idx], inplace=True)
