@@ -28,46 +28,30 @@ function App() {
   const [total, setTotal] = useState(0); // total number of data points in pool
   const [score, setScore] = useState(0.00); // current/latest f1-score
   const [targetScore, setTargetScore] = useState(80.00); // threshold where active learning score aligns with non-AL
-  const [scoreSeries, setScoreSeries] = useState([{
-    labels: 1.00,
-    score: 10.03,
-  },
-  {
-    labels: 2.44,
-    score: 15.44,
-  },
-  {
-    labels: 5,
-    score: 20.11,
-  },
-  {
-    labels: 8,
-    score: 30.69,
-  },
-  {
-    labels: 20,
-    score: 50.78,
-  },
-  {
-    labels: 25,
-    score: 60.23,
-  },
-  {
-    labels: 50.64,
-    score: 85.67,
-  }]);
+  const [scoreSeries, setScoreSeries] = useState([]); // model performance series
 
-  // on component mount listen for tweets from WS server
+  // on component mount listen for queries
   useEffect(() => {
-    socket.on("tweet", data => {
-      setTweet(data)
+    socket.on("query", data => {
+      console.log(data)
+      setTweet({idx: data.idx, text: data.text})
+      setUncertainty(data.uncertainty)
+      setScoreSeries(score => [...score, data.series]);
+      setProgress(data.labeled_size)
+      setScore(data.score)
     });
   }, []);
 
-  // on component mount listen for f1-score updates
+  // on component mount listen for init
   useEffect(() => {
-    socket.on("score-data", data => {
-      setScoreSeries(score => [...score, data]);
+    socket.on("init", data => {
+      console.log(data)
+      setTweet({idx: data.idx, text: data.text})
+      setUncertainty(data.uncertainty)
+      setScoreSeries(data.series)
+      setProgress(data.labeled_size)
+      setTotal(data.dataset_size)
+      setScore(data.score)
     });
   }, []);
 
@@ -89,9 +73,9 @@ function App() {
           <span>{uncertainty * 100}%</span>
         </div>
         <p>
-          Current classification performance (f1-score): {score * 100}% 
+          Current classification performance (f1-score): {score}% 
         </p>
-        <ResponsiveContainer width="50%" height="50%">
+        <ResponsiveContainer width="90%" height="50%">
           <LineChart
             width={500}
             height={300}
@@ -103,12 +87,11 @@ function App() {
               bottom: 45,
             }}>
             <CartesianGrid strokeDasharray="3 3" />
-            <XAxis dataKey="labels"
+            <XAxis dataKey="queries"
               type="number" 
               domain={['dataMin', 'dataMax']}
-              tickFormatter={tick => `${tick}%`}
               padding={{ left: 20, right: 20 }}>
-              <Label value="labelled ratio" offset={-30} position="insideBottom" fill="#82ca9d" />
+              <Label value="number of queries" offset={-30} position="insideBottom" fill="#82ca9d" />
             </XAxis>
             <YAxis type="number"
               domain={[0, 100]}
@@ -117,13 +100,13 @@ function App() {
             </YAxis>
               <Tooltip formatter={score => [`${score}%`, "f1-score"]}
               labelStyle={{color: "#282c34"}}
-              labelFormatter={label => `labelled: ${label}%,`}
+              labelFormatter={label => `queries: ${label},`}
               contentStyle={{borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px"}}
               itemStyle={{color: "#282c34"}}/>
             <ReferenceLine y={targetScore} stroke="#8884d8">
               <Label value="Learning Target" fill="#8884d8" position="top" />
             </ReferenceLine>
-            <Line type="monotone" dataKey="score" stroke="#82ca9d" activeDot={{ r: 8 }} />
+            <Line type="monotone" dataKey="score" stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
           </LineChart>
         </ResponsiveContainer>
       </div>
