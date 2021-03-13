@@ -9,6 +9,7 @@ import pandas as pd
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
 from sklearn.linear_model import LogisticRegression
+from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
 from textblob import TextBlob
@@ -36,19 +37,21 @@ from time import sleep
 from flask import Flask, request
 from flask_socketio import SocketIO
 
-logging.basicConfig(filename='server.log', level=logging.DEBUG, format='[%(asctime)s] %(message)s',
+logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
 try:
-    args, vals = getopt.getopt(sys.argv[1:], 'd:s:a', ['dataset=', 'sampling=', 'auto'])
+    args, vals = getopt.getopt(sys.argv[1:], 'd:s:av:', ['dataset=', 'sampling=', 'auto', 'vectorizer='])
 except getopt.error as err:
     logging.error(str(err))
     sys.exit(2)
 
+# defaults
 DATASET = "../data/dataset.csv"
 QUERY_STRATEGY = modAL.uncertainty.uncertainty_sampling
 MANUAL = True
+VECTORIZER = 'tfidf'
 
 # config arg parsing
 for arg, val in args:
@@ -68,7 +71,10 @@ for arg, val in args:
     elif arg in ("-a", "--auto"):
         logging.info('Semi-supervised label querying is enabled.')
         MANUAL = False
-
+    elif arg in ("-v", "--vectorizer"):
+        if val in ("tfidf", "w2v", "d2v"):
+            logging.info(f'Using {val} Vectorizer.')
+            VECTORIZER = val
 
 # normal script execution below:
 logging.info('Starting AL process')
@@ -143,6 +149,7 @@ def feature_extract():
 
 # tweet normalisation/cleaning
 def clean(tweet):
+    # drop all urls
     no_urls = re.sub(r'(((https?:\s?)?(\\\s*/\s*)*\s*t\.co\s*(s*\\\s*/\s*)*\S+)|https?://\S+)', '', tweet)
     # transform emojis to their description
     new = demoji.replace_with_desc(string=no_urls, sep='\"')
@@ -173,6 +180,31 @@ df['clean'] = df.tweet.apply(clean)
 df = df.drop_duplicates(subset=['clean'], ignore_index=True)
 if not 'target' in df.columns: df['target'] = np.nan
 
+if VECTORIZER == 'tfidf': 
+    # learn TF-IDF language model
+    tfidf = TfidfVectorizer(ngram_range=(1,3))
+    tfidf.fit(df['clean'])
+
+import gensim
+if VECTORIZER == 'd2v':
+    # learn Doc2Vec language model
+    train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row['clean']), [index]) for index, row in df.iterrows()]
+    doc_model = gensim.models.doc2vec.Doc2Vec(vector_size=50, min_count=2, epochs=40)
+    doc_model.build_vocab(train_corpus)
+    doc_model.train(train_corpus, total_examples=doc_model.corpus_count, epochs=doc_model.epochs)
+
+# learn Word2Vec language model
+if VECTORIZER == 'w2v':
+    #TODO: w2v averaged
+    pass
+
+def vectorize(documents):
+    if VECTORIZER == 'tfidf':
+        return tfidf.transform(documents)
+    elif VECTORIZER == 'd2v':
+        return np.stack([doc_model.infer_vector(gensim.utils.simple_preprocess(x)) for x in documents])
+
+
 # partition dataset if possible
 labeled_pool = df[df.target.notnull()]
 labeled_pool.reset_index(drop=True, inplace=True)
@@ -185,14 +217,14 @@ labeled_size = len(labeled_pool.index)
 
 # TODO: Utilise all features, not only clean text
 # split into training and testing subsets if possible 
-## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target)
+## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target, random_state=42)
 # set up learning pool
 global X_pool, y_pool
 X_pool, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
 
 # initialise active learner model
 # TODO: allow supplying of estimator + h-params as command args
-classifier = LogisticRegression()
+classifier = KNeighborsClassifier(n_neighbors=1)
 learner = ActiveLearner(
     estimator = classifier,
     query_strategy = QUERY_STRATEGY
@@ -206,10 +238,11 @@ def teach(tweet):
     label = int(tweet['label'])
 
     # teach new sample
-    logging.info(f'Teaching instance: idx {idx}, label {label}, tweet: {X_pool.iloc[idx].tweet}')
+    logging.info(f'-# Teaching instance: idx {idx}, label {label}, tweet: {X_pool.iloc[idx].tweet} #-')
     y_new = np.array([label], dtype=int)
     # TODO: transform text to vectors for fitting with teach
     #learner.teach(X_pool.iloc[idx:idx+1], y_new)
+    learner.teach(vectorize(X_pool['clean'].iloc[idx:idx+1]), y_new)
     global labeled_size
     labeled_size += 1
 
@@ -222,12 +255,12 @@ def teach(tweet):
     # store accuracy metric after training
     global accuracy_scores
     # TODO: obtain test sets
-    # accuracy_scores.append(learner.score(X_test, y_test))
+    # accuracy_scores.append({'queries': labeled_size, 'score': learner.score(X_test, y_test)*100})
     accuracy_scores.append({'queries': labeled_size, 'score': random.random()*100})
 
 def init():
     # retrieve most uncertain instance
-    query_idx, query_sample = learner.query(X_pool)
+    query_idx, query_sample = learner.query(vectorize(X_pool['clean']))
     idx = int(query_idx)
 
     sio.emit('init', {
@@ -238,12 +271,14 @@ def init():
             'strategy': 'uncertainty',
             'labeled_size': labeled_size,
             'dataset_size': dataset_size,
-            'score': accuracy_scores[-1]['score'] if accuracy_scores else 0
+            'score': accuracy_scores[-1]['score'] if accuracy_scores else 0,
+            'target': 80.00
             })
 
 def query():
     # retrieve most uncertain instance
-    query_idx, query_sample = learner.query(X_pool)
+    # query_idx, query_sample = learner.query(tfidf.transform(X_pool['clean']))
+    query_idx, query_sample = learner.query(vectorize(X_pool['clean']))
     idx = int(query_idx)
 
     sio.emit('query', {
