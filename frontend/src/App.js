@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Label, ReferenceLine, ResponsiveContainer } from 'recharts';
 
+const crypto = require('crypto'); 
 const io = require("socket.io-client");
 const socket = io('http://127.0.0.1:5000', {transports: ['websocket']});
 
 function alright(tweet) {
   console.log(`"${tweet.text}" --> alright. --> 0`);
-  socket.emit("label", {'idx': tweet.idx, 'label': 0});
+  socket.emit("label", {'idx': tweet.idx, 'label': 0, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex')});
 }
 
 function malicious(tweet) {
   console.log(`"${tweet.text}" --> malicious. --> 1`);
-  socket.emit("label", {'idx': tweet.idx, 'label': 1});
+  socket.emit("label", {'idx': tweet.idx, 'label': 1, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex')});
 }
 
 function refresh() {

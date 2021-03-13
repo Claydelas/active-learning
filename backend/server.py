@@ -20,6 +20,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 import matplotlib.pyplot as plt
 
 import random
+import hashlib
 
 import getopt, sys
 
@@ -236,9 +237,12 @@ accuracy_scores = []
 def teach(tweet):
     idx = int(tweet['idx'])
     label = int(tweet['label'])
+    text = X_pool.iloc[idx].tweet
+
+    if tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
 
     # teach new sample
-    logging.info(f'-# Teaching instance: idx {idx}, label {label}, tweet: {X_pool.iloc[idx].tweet} #-')
+    logging.info(f'-# Teaching instance: idx {idx}, label {label}, tweet: {text} #-')
     y_new = np.array([label], dtype=int)
     # TODO: transform text to vectors for fitting with teach
     #learner.teach(X_pool.iloc[idx:idx+1], y_new)
