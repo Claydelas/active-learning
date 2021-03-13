@@ -6,18 +6,18 @@ const io = require("socket.io-client");
 const socket = io('http://127.0.0.1:5000', {transports: ['websocket']});
 
 function alright(tweet) {
-  console.log(`"${tweet.text}" --> alright. --> 0`)
-  socket.emit("label", {'idx': tweet.idx, 'label': 0})
+  console.log(`"${tweet.text}" --> alright. --> 0`);
+  socket.emit("label", {'idx': tweet.idx, 'label': 0});
 }
 
 function malicious(tweet) {
-  console.log(`"${tweet.text}" --> malicious. --> 1`)
-  socket.emit("label", {'idx': tweet.idx, 'label': 1})
+  console.log(`"${tweet.text}" --> malicious. --> 1`);
+  socket.emit("label", {'idx': tweet.idx, 'label': 1});
 }
 
 function refresh() {
-  console.log('refresh')
-  socket.emit("refresh")
+  console.log('refresh');
+  socket.emit("refresh");
 }
 
 function App() {
@@ -33,25 +33,26 @@ function App() {
   // on component mount listen for queries
   useEffect(() => {
     socket.on("query", data => {
-      console.log(data)
-      setTweet({idx: data.idx, text: data.text})
-      setUncertainty(data.uncertainty)
+      console.log(data);
+      setTweet({idx: data.idx, text: data.text});
+      setUncertainty(data.uncertainty);
       setScoreSeries(score => [...score, data.series]);
-      setProgress(data.labeled_size)
-      setScore(data.score)
+      setProgress(data.labeled_size);
+      setScore(data.score);
     });
   }, []);
 
   // on component mount listen for init
   useEffect(() => {
     socket.on("init", data => {
-      console.log(data)
-      setTweet({idx: data.idx, text: data.text})
-      setUncertainty(data.uncertainty)
-      setScoreSeries(data.series)
-      setProgress(data.labeled_size)
-      setTotal(data.dataset_size)
-      setScore(data.score)
+      console.log(data);
+      setTweet({idx: data.idx, text: data.text});
+      setUncertainty(data.uncertainty);
+      setScoreSeries(data.series);
+      setProgress(data.labeled_size);
+      setTotal(data.dataset_size);
+      setScore(data.score);
+      setTargetScore(data.target);
     });
   }, []);
 
@@ -73,7 +74,7 @@ function App() {
           <span>{uncertainty * 100}%</span>
         </div>
         <p>
-          Current classification performance (f1-score): {score}% 
+          Current classification performance (f1-score): {score.toFixed(2)}% 
         </p>
         <ResponsiveContainer width="90%" height="50%">
           <LineChart
