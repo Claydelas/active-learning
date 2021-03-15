@@ -3,7 +3,7 @@ import glob
 import re
 from time import time
 import demoji
-from modAL.utils.data import drop_rows, retrieve_rows
+from modAL.utils.data import data_hstack, drop_rows, retrieve_rows
 import nltk
 import numpy as np
 import pandas as pd
@@ -77,9 +77,6 @@ for arg, val in args:
         if val in ("tfidf", "w2v", "d2v"):
             logging.info(f'Using {val} Vectorizer.')
             VECTORIZER = val
-
-# normal script execution below:
-logging.info('Starting AL process')
 
 # load dataset into a data frame
 df = pd.read_csv(DATASET, sep='\t', index_col=0)
@@ -176,7 +173,6 @@ def clean(tweet):
     lemmas = [wl.lemmatize(t) for t in no_stopwords]
     return (" ".join(lemmas)).strip()
 
-
 # extract textual features
 feature_extract()
 
@@ -215,6 +211,18 @@ def get_row(feature_matrix, idx):
     else:
         return retrieve_rows(feature_matrix, idx)
 
+def build_features(pool, columns):
+    blocks = []
+    for column, type in columns:
+        if type == 'text':
+            blocks.append(vectorize(pool[column]))
+        if type == 'numeric':
+            # TODO: scale numeric features
+            blocks.append(pool[column].values.reshape(-1,1))
+        if type == 'bool':
+            blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
+    return data_hstack(blocks)
+
 # partition dataset if possible
 labeled_pool = df[df.target.notnull()]
 labeled_pool.reset_index(drop=True, inplace=True)
@@ -225,13 +233,19 @@ unlabeled_pool.reset_index(drop=True, inplace=True)
 dataset_size = len(df.index)
 labeled_size = len(labeled_pool.index)
 
-# TODO: Utilise all features, not only clean text
 # split into training and testing subsets if possible 
 ## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target, random_state=42)
+
 # set up learning pool
-#global X_pool_raw, y_pool
 X_pool_raw, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
 X_pool_features = vectorize(X_pool_raw['clean'])
+# TODO: pull features from args
+# replaces X_pool_features in final implementation
+X_all_features = build_features(X_pool_raw, [
+    ('clean', 'text'), # vectorize on clean
+    ('user_followers', 'numeric'), # scale user_followers
+    ('user_verified', 'bool') # transform bools to 0/1s
+    ])
 
 # initialise active learner model
 # TODO: allow supplying of estimator + h-params as command args
@@ -304,6 +318,7 @@ def query():
             })
 
 if MANUAL:
+    logging.info('Starting AL server')
     app = Flask('Active Learning')
     sio = SocketIO(app, cors_allowed_origins='*')
 
