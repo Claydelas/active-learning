@@ -3,6 +3,7 @@ import glob
 import re
 from time import time
 import demoji
+from modAL.utils.data import drop_rows, retrieve_rows
 import nltk
 import numpy as np
 import pandas as pd
@@ -13,7 +14,7 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.pipeline import Pipeline
 from textblob import TextBlob
-#from nltk.stem import WordNetLemmatizer
+from nltk.stem import WordNetLemmatizer
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import classification_report
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -88,6 +89,7 @@ nltk.download('stopwords')
 stop_words = set(stopwords.words('english'))
 nltk.download('punkt')
 nltk.download('wordnet')
+wl = WordNetLemmatizer()
 demoji.download_codes()
 
 # contractions regex
@@ -170,7 +172,9 @@ def clean(tweet):
     words = [x for x in nltk.word_tokenize(letters_only) if len(x) > 1]
     # remove stop words
     no_stopwords = list(filter(lambda l: l not in stop_words, words))
-    return (" ".join(no_stopwords)).strip()
+    # lemmatize words
+    lemmas = [wl.lemmatize(t) for t in no_stopwords]
+    return (" ".join(lemmas)).strip()
 
 
 # extract textual features
@@ -203,8 +207,13 @@ def vectorize(documents):
     if VECTORIZER == 'tfidf':
         return tfidf.transform(documents)
     elif VECTORIZER == 'd2v':
-        return np.stack([doc_model.infer_vector(gensim.utils.simple_preprocess(x)) for x in documents])
+        return np.array([doc_model.infer_vector(gensim.utils.simple_preprocess(x)) for x in documents])
 
+def get_row(feature_matrix, idx): 
+    if isinstance(feature_matrix, np.ndarray):
+        return retrieve_rows(feature_matrix, [idx])
+    else:
+        return retrieve_rows(feature_matrix, idx)
 
 # partition dataset if possible
 labeled_pool = df[df.target.notnull()]
@@ -220,8 +229,9 @@ labeled_size = len(labeled_pool.index)
 # split into training and testing subsets if possible 
 ## X_train, X_test, y_train, y_test = train_test_split(labeled_pool.drop('target', axis=1), labeled_pool.target, random_state=42)
 # set up learning pool
-global X_pool, y_pool
-X_pool, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
+#global X_pool_raw, y_pool
+X_pool_raw, y_pool = unlabeled_pool.drop('target', axis=1), unlabeled_pool.target
+X_pool_features = vectorize(X_pool_raw['clean'])
 
 # initialise active learner model
 # TODO: allow supplying of estimator + h-params as command args
@@ -235,41 +245,41 @@ learner = ActiveLearner(
 accuracy_scores = []
 
 def teach(tweet):
+
+    global X_pool_raw, X_pool_features, y_pool, labeled_size, accuracy_scores
+
+    # extract data from tweet obj
     idx = int(tweet['idx'])
     label = int(tweet['label'])
-    text = X_pool.iloc[idx].tweet
+    text = X_pool_raw.iloc[idx].tweet
+    y_new = np.array([label], dtype=int)
 
+    # fail early if hashes don't match (web app out of sync)
     if tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
 
     # teach new sample
-    logging.info(f'-# Teaching instance: idx {idx}, label {label}, tweet: {text} #-')
-    y_new = np.array([label], dtype=int)
-    # TODO: transform text to vectors for fitting with teach
-    #learner.teach(X_pool.iloc[idx:idx+1], y_new)
-    learner.teach(vectorize(X_pool['clean'].iloc[idx:idx+1]), y_new)
-    global labeled_size
+    logging.info(f'-# Teaching instance: \n idx {idx}, \n label {label}, \n tweet: {text}, \n words: {X_pool_raw.iloc[idx].clean} #-')
+    learner.teach(get_row(X_pool_features, idx), y_new)
     labeled_size += 1
 
     # remove learned sample from pool
-    X_pool.drop(df.index[idx], inplace=True)
-    X_pool.reset_index(drop=True, inplace=True)
-    y_pool.drop(df.index[idx], inplace=True)
-    y_pool.reset_index(drop=True, inplace=True)
-
+    X_pool_raw = X_pool_raw.drop(idx).reset_index(drop=True)
+    y_pool = y_pool.drop(idx).reset_index(drop=True)
+    X_pool_features = drop_rows(X_pool_features, idx)
+    
     # store accuracy metric after training
-    global accuracy_scores
     # TODO: obtain test sets
     # accuracy_scores.append({'queries': labeled_size, 'score': learner.score(X_test, y_test)*100})
     accuracy_scores.append({'queries': labeled_size, 'score': random.random()*100})
 
 def init():
     # retrieve most uncertain instance
-    query_idx, query_sample = learner.query(vectorize(X_pool['clean']))
+    query_idx, query_sample = learner.query(X_pool_features)
     idx = int(query_idx)
 
     sio.emit('init', {
             'idx': idx,
-            'text': X_pool.iloc[idx].tweet,
+            'text': X_pool_raw.iloc[idx].tweet,
             'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=classifier, X=query_sample)[0],
             'series': accuracy_scores,
             'strategy': 'uncertainty',
@@ -281,13 +291,12 @@ def init():
 
 def query():
     # retrieve most uncertain instance
-    # query_idx, query_sample = learner.query(tfidf.transform(X_pool['clean']))
-    query_idx, query_sample = learner.query(vectorize(X_pool['clean']))
+    query_idx, query_sample = learner.query(X_pool_features)
     idx = int(query_idx)
 
     sio.emit('query', {
             'idx': idx,
-            'text': X_pool.iloc[idx].tweet,
+            'text': X_pool_raw.iloc[idx].tweet,
             'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=classifier, X=query_sample)[0],
             'labeled_size': labeled_size,
             'series': accuracy_scores[-1],
