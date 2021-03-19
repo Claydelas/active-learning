@@ -2,15 +2,16 @@ from flask import Flask, request
 import modAL.uncertainty
 from flask_socketio import SocketIO
 class Server():
-    def __init__(self, learning):
+    def __init__(self, learning, logging):
         self.learning = learning
+        self.logging = logging
         self.app = Flask('Active Learning')
         self.sio = SocketIO(self.app, cors_allowed_origins='*')
         self.bootstrap()
 
     def run(self):
         # Start Web Server + Socket.IO
-        # thread = threading.Thread(target=lambda: sio.run(app)).start()
+        # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
         self.sio.run(self.app)
 
     def init(self, learning):
@@ -49,19 +50,18 @@ class Server():
 
         @self.sio.on('connect')
         def connect():
-            #logging.info(f'Client connected: {request.sid}')
+            self.logging.info(f'Client connected: {request.sid}')
             self.init(self.learning)
             
         @self.sio.on('disconnect')
         def disconnect():
-            pass
-            #logging.info(f'Client disconnected: {request.sid}')
+            self.logging.info(f'Client disconnected: {request.sid}')
 
         @self.sio.on('refresh')
         def refresh():
-            #logging.info(f'{request.sid} requested refresh.')
+            self.logging.info(f'{request.sid} requested refresh.')
             self.init(self.learning)
-            
+
         @self.sio.on('label')
         def label(tweet):
             self.learning.teach(tweet)
