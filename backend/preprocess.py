@@ -4,6 +4,7 @@ import demoji
 import nltk
 from bs4 import BeautifulSoup
 from nltk.corpus import stopwords
+from pandas.core.frame import DataFrame
 from textblob import TextBlob
 from nltk.stem import WordNetLemmatizer
 
@@ -61,7 +62,7 @@ contraction_mapping = {"ain't": "is not", "aren't": "are not","can't": "cannot",
 contracts = re.compile(r'\b(' + '|'.join(contraction_mapping.keys()) + r')\b')
 
 # extract textual features in-place (for external comparative datasets)
-def feature_extract(df, tweet):
+def feature_extract(df: DataFrame, tweet: str):
     df['emoji_count'] = df[tweet].apply(lambda t: len(demoji.findall_list(t)))
     df['polarity'] = df[tweet].apply(lambda t: TextBlob(t).polarity)
     df['subjectivity'] = df[tweet].apply(lambda t: TextBlob(t).subjectivity)
@@ -73,7 +74,7 @@ def feature_extract(df, tweet):
     df['is_retweet'] = df[tweet].apply(lambda t: 1 if re.search('[Rr][Tt].@\S+', t) else 0)
 
 # tweet normalisation/cleaning
-def clean(tweet):
+def clean(tweet: str):
     # drop all urls
     no_urls = re.sub(r'(((https?:\s?)?(\\\s*/\s*)*\s*t\.co\s*(s*\\\s*/\s*)*\S+)|https?://\S+)', '', tweet)
     # transform emojis to their description
@@ -98,5 +99,5 @@ def clean(tweet):
     lemmas = [wl.lemmatize(t) for t in no_stopwords]
     return (" ".join(lemmas)).strip()
 
-def process(df, tweet):
+def process(df: DataFrame, tweet: str):
     df[f'{tweet}_clean'] = df[tweet].apply(clean)

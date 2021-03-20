@@ -1,8 +1,10 @@
+from logging import Logger
+from backend.active_learning import ActiveLearning
 from flask import Flask, request
 import modAL.uncertainty
 from flask_socketio import SocketIO
 class Server():
-    def __init__(self, learning, logging):
+    def __init__(self, learning: ActiveLearning, logging: Logger):
         self.learning = learning
         self.logging = logging
         self.app = Flask('Active Learning')
@@ -14,7 +16,7 @@ class Server():
         # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
         self.sio.run(self.app)
 
-    def init(self, learning):
+    def init(self, learning: ActiveLearning):
         # retrieve most uncertain instance
         query_idx, query_sample = learning.learner.query(learning.X)
         idx = int(query_idx)
@@ -27,10 +29,10 @@ class Server():
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
-                'target': 80.00
+                'target': learning.target_score
                 })
                 
-    def query(self, learning):
+    def query(self, learning: ActiveLearning):
         # retrieve most uncertain instance
         query_idx, query_sample = learning.learner.query(learning.X)
         idx = int(query_idx)

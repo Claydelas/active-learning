@@ -1,6 +1,9 @@
 import logging, sys
+from typing import Callable, Collection, Dict, Tuple, Union
 
-import preprocess as pre
+from sklearn.base import BaseEstimator
+
+import backend.preprocess as pre
 
 import pandas as pd
 from pandas.core.frame import DataFrame
@@ -12,13 +15,16 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from modAL.utils.data import data_hstack, retrieve_rows
 
+Vectorizer = Union[TfidfVectorizer, gensim.models.doc2vec.Doc2Vec, gensim.models.word2vec.Word2Vec]
+
 # base class for learning processes
 class Learning():
     def __init__(self,
-                 estimator,
+                 estimator: BaseEstimator,
                  dataset: DataFrame = None,
-                 columns = [('tweet', 'tweet')],
-                 vectorizer = None):
+                 columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
+                 vectorizer: Vectorizer = None,
+                 extra_processing: Callable[[DataFrame], DataFrame] = None):
 
         logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -34,11 +40,15 @@ class Learning():
         for col, type in columns:
             if type == 'tweet':
                 dataset.rename(columns={col: 'tweet'}, inplace=True)
+
+        # execute any aditional processing defined as a callback function (extra dataset-specific processing)
+        if extra_processing is not None and callable(extra_processing): 
+            dataset = extra_processing(dataset)
         self.dataset = dataset
 
         # rename the column containing tweet text to "tweet" (for feature extraction)
         self.columns = [('tweet', type) if type == 'tweet' else (col,type) for col, type in columns]
-        self.accuracy_scores = []
+        self.accuracy_scores: Collection[Dict[str, Union[int, float]]] = []
 
         # default vectorizer
         if vectorizer is None:
@@ -46,8 +56,8 @@ class Learning():
         else: self.vectorizer = vectorizer
 
     # extracts features from text and prepares it for vectorization
-    def process(self,):
-        clean_columns = []
+    def process(self,) -> DataFrame:
+        clean_columns: Collection[Tuple[str, str]] = []
         for col, type in self.columns:
             if (type == 'tweet'):
                 # extract textual features
@@ -70,7 +80,7 @@ class Learning():
         return self.dataset
 
     # trains a vectorizer on a set of documents
-    def learn_text_model(self, vectorizer = None, documents = 'tweet_clean'):
+    def learn_text_model(self, vectorizer: Vectorizer = None, documents: str = 'tweet_clean') -> Vectorizer:
         if vectorizer is None:
             vectorizer = self.vectorizer 
         if isinstance(vectorizer, TfidfVectorizer):
@@ -93,7 +103,7 @@ class Learning():
         self.dataset_size = len(self.dataset.index)
         self.labeled_size = len(self.labeled_pool.index)
 
-    def split(self, pool, y='target'):
+    def split(self, pool: DataFrame, y: str = 'target'):
         # split into training and testing subsets
         # ensures at least 5 samples per class for initial training and testing
         if self.labeled_size >= 100:
@@ -120,7 +130,7 @@ class Learning():
         return self.X_raw, self.X, self.y
 
     # builds and stacks feature matrices to obtain a single matrix used for sampling and training
-    def build_features(self, pool, columns):
+    def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
         blocks = []
         for column, type in columns:
             if type == 'text' or type == 'tweet':
@@ -133,7 +143,7 @@ class Learning():
         return data_hstack(blocks)
 
     # utility function that provides a uniform method for vectorizing text via different vectorizers
-    def __vectorize__(self, documents, vectorizer = None):
+    def __vectorize__(self, documents, vectorizer: Vectorizer = None):
         if vectorizer is None:
             vectorizer = self.vectorizer
         if isinstance(vectorizer, TfidfVectorizer):
@@ -142,7 +152,7 @@ class Learning():
             return np.array([vectorizer.infer_vector(gensim.utils.simple_preprocess(x)) for x in documents])
 
     # utility function that returns a row as a 2d np array regardless of matrix format
-    def __get_row__(self, feature_matrix, idx): 
+    def __get_row__(self, feature_matrix, idx: int): 
         if isinstance(feature_matrix, np.ndarray):
             return retrieve_rows(feature_matrix, [idx])
         else:

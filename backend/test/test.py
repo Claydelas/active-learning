@@ -1,7 +1,7 @@
 import sys, os
 sys.path.insert(1, os.path.join(sys.path[0], '..'))
 
-from active_learning import ActiveLearning
+from backend.active_learning import ActiveLearning
 import gensim
 import pandas as pd
 from sklearn.neighbors import KNeighborsClassifier

@@ -2,8 +2,12 @@ import logging
 import random
 import hashlib
 
-from sio_server import Server
-from learning import Learning
+from typing import Callable, Collection, Dict, Tuple, Union
+
+from sklearn.base import BaseEstimator
+
+from backend.sio_server import Server
+from backend.learning import Learning, Vectorizer
 
 import pandas as pd
 from pandas.core.frame import DataFrame
@@ -12,19 +16,23 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 import modAL.uncertainty
-from modAL.utils.data import drop_rows, retrieve_rows
+from modAL.utils.data import drop_rows
 from modAL.models import ActiveLearner
+
 class ActiveLearning(Learning):
     def __init__(self,
-                 estimator,
-                 query_strategy = modAL.uncertainty.uncertainty_sampling,
+                 estimator: BaseEstimator,
+                 query_strategy: Callable[...,np.ndarray] = modAL.uncertainty.uncertainty_sampling,
                  dataset: DataFrame = None,
-                 columns = [('tweet', 'tweet')],
-                 vectorizer = None,
-                 start = False):
-        super().__init__(estimator, dataset, columns, vectorizer)
+                 columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
+                 vectorizer: Vectorizer = None,
+                 extra_processing: Callable[[DataFrame], DataFrame] = None,
+                 start: bool = False,
+                 target_score: float = 80.00):
+        super().__init__(estimator, dataset, columns, vectorizer, extra_processing)
         assert callable(query_strategy), 'query_strategy must be callable'
         self.query_strategy = query_strategy
+        self.target_score = target_score
         # start webserver 
         if start: self.start()
 
@@ -43,7 +51,7 @@ class ActiveLearning(Learning):
         )
         self.start_server()
 
-    def split(self, pool, y='target'):
+    def split(self, pool: DataFrame, y: str = 'target'):
         # split into training and testing subsets
         # ensures at least 5 samples per class for initial training and testing
         if self.labeled_size >= 100:
@@ -67,13 +75,13 @@ class ActiveLearning(Learning):
 
     # utility function used to teach an active learner a new sample tweet from a json object {idx: i, hash: h, label: l}
     # after being learned, the tweet is removed from the sampling pool and the new model performance is recorded
-    def teach(self, tweet):
+    def teach(self, tweet: Dict[str, Union[int, str]]):
         # extract data from tweet obj
         idx = int(tweet['idx'])
         label = int(tweet['label'])
         if self.X_raw.empty: return
-        text = self.X_raw.iloc[idx].tweet
-        y_new = np.array([label], dtype=int)
+        text: str = self.X_raw.iloc[idx].tweet
+        y_new: np.ndarray = np.array([label], dtype=int)
 
         # fail early if hashes don't match (web app out of sync)
         if tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
@@ -97,10 +105,3 @@ class ActiveLearning(Learning):
     def start_server(self):
         server = Server(self, logging.getLogger())
         server.run()
-
-    # utility function that returns a row as a 2d np array regardless of matrix format
-    def __get_row__(self, feature_matrix, idx): 
-        if isinstance(feature_matrix, np.ndarray):
-            return retrieve_rows(feature_matrix, [idx])
-        else:
-            return retrieve_rows(feature_matrix, idx)
