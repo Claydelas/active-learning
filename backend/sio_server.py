@@ -1,10 +1,10 @@
 from logging import Logger
-from backend.active_learning import ActiveLearning
+import active_learning
 from flask import Flask, request
 import modAL.uncertainty
 from flask_socketio import SocketIO
 class Server():
-    def __init__(self, learning: ActiveLearning, logging: Logger):
+    def __init__(self, learning, logging: Logger):
         self.learning = learning
         self.logging = logging
         self.app = Flask('Active Learning')
@@ -16,34 +16,51 @@ class Server():
         # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
         self.sio.run(self.app)
 
-    def init(self, learning: ActiveLearning):
+    def init(self, learning):
         # retrieve most uncertain instance
-        query_idx, query_sample = learning.learner.query(learning.X)
-        idx = int(query_idx)
-        self.sio.emit('init', {
-                'idx': idx,
-                'text': learning.X_raw.iloc[idx].tweet,
-                'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
-                'series': learning.accuracy_scores,
-                'strategy': 'uncertainty',
-                'labeled_size': learning.labeled_size,
-                'dataset_size': learning.dataset_size,
-                'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
-                'target': learning.target_score
-                })
+        if learning.X_pool.shape[0] > 0:
+            query_idx, query_sample = learning.learner.query(learning.X_pool)
+            idx = int(query_idx)
+            self.sio.emit('init', {
+                    'idx': idx,
+                    'text': learning.X_pool_raw.iloc[idx].tweet,
+                    'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
+                    'series': learning.accuracy_scores,
+                    'strategy': 'uncertainty',
+                    'labeled_size': learning.labeled_size,
+                    'dataset_size': learning.dataset_size,
+                    'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
+                    'target': learning.target_score
+                    })
+        else:
+            self.sio.emit('end', {
+                    'series': learning.accuracy_scores,
+                    'strategy': 'uncertainty',
+                    'labeled_size': learning.labeled_size,
+                    'dataset_size': learning.dataset_size,
+                    'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
+                    'target': learning.target_score
+                    })
                 
-    def query(self, learning: ActiveLearning):
+    def query(self, learning):
         # retrieve most uncertain instance
-        query_idx, query_sample = learning.learner.query(learning.X)
-        idx = int(query_idx)
-        self.sio.emit('query', {
-                'idx': idx,
-                'text': learning.X_raw.iloc[idx].tweet,
-                'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
-                'labeled_size': learning.labeled_size,
-                'series': learning.accuracy_scores[-1],
-                'score': learning.accuracy_scores[-1]['score']
-                })
+        if learning.X_pool.shape[0] > 0:
+            query_idx, query_sample = learning.learner.query(learning.X_pool)
+            idx = int(query_idx)
+            self.sio.emit('query', {
+                    'idx': idx,
+                    'text': learning.X_pool_raw.iloc[idx].tweet,
+                    'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
+                    'labeled_size': learning.labeled_size,
+                    'series': learning.accuracy_scores[-1],
+                    'score': learning.accuracy_scores[-1]['score']
+                    })
+        else:
+            self.sio.emit('end', {
+                    'labeled_size': learning.labeled_size,
+                    'series': learning.accuracy_scores,
+                    'score': learning.accuracy_scores[-1]['score']
+                    })
 
     def bootstrap(self):
         @self.app.route('/')
@@ -66,6 +83,6 @@ class Server():
 
         @self.sio.on('label')
         def label(tweet):
-            self.learning.teach(tweet)
+            self.learning.teach(tweet, hashed=True)
             self.query(self.learning)
     
