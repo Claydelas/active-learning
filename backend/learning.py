@@ -3,7 +3,7 @@ from typing import Callable, Collection, Dict, Tuple, Union
 
 from sklearn.base import BaseEstimator
 
-import backend.preprocess as pre
+import preprocess as pre
 
 import pandas as pd
 from pandas.core.frame import DataFrame
@@ -65,7 +65,7 @@ class Learning():
                 # clean train set
                 pre.process(self.dataset, col)
                 # remove duplicate tweets
-                self.dataset = self.dataset.drop_duplicates(subset=['tweet_clean'], ignore_index=True)
+                self.dataset = self.dataset.drop_duplicates(subset=['tweet_clean'])
                 # rename the preprocessed column from name -> name_clean
                 clean_columns.append((f'{col}_clean',type))
             elif (type == 'text'):
@@ -97,37 +97,34 @@ class Learning():
     # partitions dataset into unlabeled, training and testing subsets
     def partition(self):
         # partition dataset into labeled and unlabled samples
-        self.labeled_pool = self.dataset[self.dataset.target.notnull()].reset_index(drop=True)
-        self.unlabeled_pool = self.dataset[self.dataset.target.isnull()].reset_index(drop=True)
-
-        self.dataset_size = len(self.dataset.index)
-        self.labeled_size = len(self.labeled_pool.index)
+        self.labeled_pool = self.dataset[self.dataset.target.notnull()]
+        self.unlabeled_pool = self.dataset[self.dataset.target.isnull()]
 
     def split(self, pool: DataFrame, y: str = 'target'):
         # split into training and testing subsets
         # ensures at least 5 samples per class for initial training and testing
-        if self.labeled_size >= 100:
+        labels = len(self.labeled_pool.index)
+        if labels >= 100:
             X_labeled, X_train_test = train_test_split(pool, random_state=42, test_size=0.2, stratify=pool[y])
-            X_train, self.X_test = train_test_split(X_train_test, random_state=42, test_size=0.5, stratify=X_train_test[y])
+            X_train, X_test = train_test_split(X_train_test, random_state=42, test_size=0.5, stratify=X_train_test[y])
             
-            self.X_raw = pd.concat([X_train, X_labeled], ignore_index=True)
+            X_raw = pd.concat([X_labeled, X_train])
 
-            self.X_raw = self.X_raw.drop(y, axis=1)
-            self.y = self.X_raw[y]
+            self.X_train_raw = X_raw.drop(y, axis=1)
+            self.X_train = self.build_features(self.X_train_raw, self.columns)
+            self.y_train = X_raw[y]
 
-            self.X_test = self.X_test.drop(y, axis=1)
-            self.y_test = self.X_test[y]
-
-        elif self.labeled_size >= 20:
-            self.X_raw, self.X_test, self.y, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=0.2, stratify=pool[y])
+            self.X_test_raw = X_test.drop(y, axis=1)
+            self.X_test = self.build_features(self.X_test_raw, self.columns)
+            self.y_test = X_test[y]
+        elif labels >= 20:
+            self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=0.2, stratify=pool[y])
+            self.X_train, self.X_test = self.build_features(self.X_train_raw, self.columns), self.build_features(self.X_test_raw, self.columns)
         else:
             pass
             #raise Exception("Not enough labeled samples to fit classifier and generate test set")
-
-    # prepares features for fitting with a classifier
-    def setup_pool(self):
-        self.X = self.build_features(self.X_raw, self.columns)
-        return self.X_raw, self.X, self.y
+        self.labeled_size = len(self.X_train_raw.index)
+        self.dataset_size = len(self.X_train_raw.index)
 
     # builds and stacks feature matrices to obtain a single matrix used for sampling and training
     def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
@@ -135,10 +132,10 @@ class Learning():
         for column, type in columns:
             if type == 'text' or type == 'tweet':
                 blocks.append(self.__vectorize__(pool[column]))
-            if type == 'numeric':
+            elif type == 'numeric':
                 # TODO: scale numeric features
                 blocks.append(pool[column].values.reshape(-1,1))
-            if type == 'bool':
+            elif type == 'bool':
                 blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
         return data_hstack(blocks)
 
