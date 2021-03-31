@@ -21,6 +21,16 @@ function refresh() {
   socket.emit("refresh");
 }
 
+function save(scores) {
+  console.log('saving performance graph');
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([JSON.stringify(scores, null, 2)], {
+    type: "text/plain"
+  }));
+  a.setAttribute("download", `scores-${new Date().toISOString()}.txt`);
+  a.click();
+}
+
 function App() {
 
   const [tweet, setTweet] = useState({idx: -1, text: "Tweet text will be displayed here"}); // queried tweet object
@@ -57,6 +67,19 @@ function App() {
     });
   }, []);
 
+  // on component mount listen for end
+  useEffect(() => {
+    socket.on("end", data => {
+      console.log(data);
+      setTweet({idx: -1, text: "All samples labeled."});
+      setScoreSeries(data.series);
+      setProgress(data.labeled_size);
+      if(data.dataset_size) setTotal(data.dataset_size);
+      setScore(data.score);
+      if(data.target) setTargetScore(data.target);
+    });
+  }, []);
+
   return (
     <div className="App">
       <div className="App-main">
@@ -72,6 +95,7 @@ function App() {
           {/*<button onClick={() => console.log(`previous`)} disabled={tweet.idx < 0}>&lt;</button>
           <button onClick={() => console.log(`next`)} disabled={tweet.idx < 0}>&gt;</button>*/}
           <button onClick={() => refresh()}>↻</button>
+          <button onClick={() => save(scoreSeries)}>Save</button>
           <span>{uncertainty * 100}%</span>
         </div>
         <p>
@@ -93,7 +117,7 @@ function App() {
               type="number" 
               domain={['dataMin', 'dataMax']}
               padding={{ left: 20, right: 20 }}>
-              <Label value="number of queries" offset={-30} position="insideBottom" fill="#82ca9d" />
+              <Label value="number of labels" offset={-30} position="insideBottom" fill="#82ca9d" />
             </XAxis>
             <YAxis type="number"
               domain={[0, 100]}
@@ -102,7 +126,7 @@ function App() {
             </YAxis>
               <Tooltip formatter={score => [`${score}%`, "f1-score"]}
               labelStyle={{color: "#282c34"}}
-              labelFormatter={label => `queries: ${label},`}
+              labelFormatter={label => `labels: ${label},`}
               contentStyle={{borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px"}}
               itemStyle={{color: "#282c34"}}/>
             <ReferenceLine y={targetScore} stroke="#8884d8">
