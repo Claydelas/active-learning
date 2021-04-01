@@ -10,6 +10,7 @@ from pandas.core.frame import DataFrame
 import numpy as np
 import gensim
 
+from sklearn.metrics import f1_score, classification_report
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -154,3 +155,13 @@ class Learning():
             return retrieve_rows(feature_matrix, [idx])
         else:
             return retrieve_rows(feature_matrix, idx)
+
+    def fit(self, X, y):
+        self.estimator.fit(X=X, y=y)
+        return self.estimator
+
+    def f1_score(self, X, y, average = 'micro'):
+        return f1_score(y_pred=self.estimator.predict(X), y_true=y, average=average)
+
+    def classification_report(self, X, y):
+        return classification_report(y_pred=self.estimator.predict(X), y_true=y, output_dict=True)

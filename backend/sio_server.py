@@ -29,8 +29,9 @@ class Server():
                     'strategy': 'uncertainty',
                     'labeled_size': learning.labeled_size,
                     'dataset_size': learning.dataset_size,
-                    'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
-                    'target': learning.target_score
+                    'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
+                    'target': learning.target_score,
+                    'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
                     })
         else:
             self.sio.emit('end', {
@@ -38,8 +39,9 @@ class Server():
                     'strategy': 'uncertainty',
                     'labeled_size': learning.labeled_size,
                     'dataset_size': learning.dataset_size,
-                    'score': learning.accuracy_scores[-1]['score'] if learning.accuracy_scores else 0,
-                    'target': learning.target_score
+                    'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
+                    'target': learning.target_score,
+                    'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
                     })
                 
     def query(self, learning):
@@ -53,13 +55,15 @@ class Server():
                     'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                     'labeled_size': learning.labeled_size,
                     'series': learning.accuracy_scores[-1],
-                    'score': learning.accuracy_scores[-1]['score']
+                    'score': learning.accuracy_scores[-1]['macro avg']['f1-score'],
+                    'report': learning.accuracy_scores[-1]
                     })
         else:
             self.sio.emit('end', {
                     'labeled_size': learning.labeled_size,
                     'series': learning.accuracy_scores,
-                    'score': learning.accuracy_scores[-1]['score']
+                    'score': learning.accuracy_scores[-1]['macro avg']['f1-score'],
+                    'report': learning.accuracy_scores[-1]
                     })
 
     def bootstrap(self):

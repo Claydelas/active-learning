@@ -9,7 +9,6 @@ from sio_server import Server
 from learning import Learning, Vectorizer
 
 import pandas as pd
-pd.options.mode.chained_assignment = None  # default='warn'
 from pandas.core.frame import DataFrame
 import numpy as np
 
@@ -100,7 +99,7 @@ class ActiveLearning(Learning):
             self.X_pool_raw = self.X_pool_raw.drop(raw_idx)
             self.X_pool = drop_rows(self.X_pool, idx)
             # store accuracy metric after training
-            self.accuracy_scores.append({'queries': self.labeled_size, 'score': self.learner.score(self.X_test, self.y_test)*100})
+            self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
 
     # utility function used to teach an active learner a new sample tweet from a json object {idx: i, hash: h, label: l}
     # after being learned, the tweet is removed from the sampling pool and the new model performance is recorded
@@ -125,7 +124,7 @@ class ActiveLearning(Learning):
         self.X_pool = drop_rows(self.X_pool, idx)
 
         # store accuracy metric after training
-        self.accuracy_scores.append({'queries': self.labeled_size, 'score': self.learner.score(self.X_test, self.y_test)*100})
+        self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
 
     # starts an instance of the backend server used by the labeling web-app
     def start_server(self):
