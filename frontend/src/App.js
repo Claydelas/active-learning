@@ -2,18 +2,18 @@ import { useState, useEffect } from 'react';
 import './App.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Label, ReferenceLine, ResponsiveContainer } from 'recharts';
 
-const crypto = require('crypto'); 
+const crypto = require('crypto');
 const io = require("socket.io-client");
-const socket = io('http://127.0.0.1:5000', {transports: ['websocket']});
+const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] });
 
 function alright(tweet) {
   console.log(`"${tweet.text}" --> alright. --> 0`);
-  socket.emit("label", {'idx': tweet.idx, 'label': 0, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex')});
+  socket.emit("label", { 'idx': tweet.idx, 'label': 0, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
 }
 
 function malicious(tweet) {
   console.log(`"${tweet.text}" --> malicious. --> 1`);
-  socket.emit("label", {'idx': tweet.idx, 'label': 1, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex')});
+  socket.emit("label", { 'idx': tweet.idx, 'label': 1, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
 }
 
 function refresh() {
@@ -33,7 +33,7 @@ function save(scores) {
 
 function App() {
 
-  const [tweet, setTweet] = useState({idx: -1, text: "Tweet text will be displayed here"}); // queried tweet object
+  const [tweet, setTweet] = useState({ idx: -1, text: "Tweet text will be displayed here" }); // queried tweet object
   const [uncertainty, setUncertainty] = useState(0.00); // uncertainty of currently displayed tweet
   const [progress, setProgress] = useState(0); // number of labeled data points in pool
   const [total, setTotal] = useState(0); // total number of data points in pool
@@ -46,11 +46,11 @@ function App() {
   useEffect(() => {
     socket.on("query", data => {
       console.log(data);
-      setTweet({idx: data.idx, text: data.text});
+      setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
       setScoreSeries(score => [...score, data.series]);
       setProgress(data.labeled_size);
-      setScore(data.score*100);
+      setScore(data.score * 100);
       setReport(data.report);
     });
   }, []);
@@ -59,12 +59,12 @@ function App() {
   useEffect(() => {
     socket.on("init", data => {
       console.log(data);
-      setTweet({idx: data.idx, text: data.text});
+      setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
       setScoreSeries(data.series);
       setProgress(data.labeled_size);
       setTotal(data.dataset_size);
-      setScore(data.score*100);
+      setScore(data.score * 100);
       setTargetScore(data.target);
       setReport(data.report);
     });
@@ -74,12 +74,12 @@ function App() {
   useEffect(() => {
     socket.on("end", data => {
       console.log(data);
-      setTweet({idx: -1, text: "All samples labeled."});
+      setTweet({ idx: -1, text: "All samples labeled." });
       setScoreSeries(data.series);
       setProgress(data.labeled_size);
-      if(data.dataset_size) setTotal(data.dataset_size);
-      setScore(data.score*100);
-      if(data.target) setTargetScore(data.target);
+      if (data.dataset_size) setTotal(data.dataset_size);
+      setScore(data.score * 100);
+      if (data.target) setTargetScore(data.target);
       setReport(data.report);
     });
   }, []);
@@ -123,49 +123,50 @@ function App() {
                 tickFormatter={tick => `${tick}%`}>
                 <Label value="f1-score" angle={-90} offset={-30} position="insideLeft" fill="#82ca9d" />
               </YAxis>
-                <Tooltip formatter={score => [`${score}%`, "f1-score"]}
-                labelStyle={{color: "#282c34"}}
+              <Tooltip formatter={score => [`${score}%`, "f1-score"]}
+                labelStyle={{ color: "#282c34" }}
                 labelFormatter={label => `labels: ${label},`}
-                contentStyle={{borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px"}}
-                itemStyle={{color: "#282c34"}}/>
+                contentStyle={{ borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px" }}
+                itemStyle={{ color: "#282c34" }} />
               <ReferenceLine y={targetScore} stroke="#8884d8">
                 <Label value="Learning Target" fill="#8884d8" position="top" />
               </ReferenceLine>
-              <Line type="monotone" dataKey={data => {return data['macro avg']['f1-score']*100}} stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
+              <Line type="monotone" dataKey={data => { return data['macro avg']['f1-score'] * 100 }} stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
             </LineChart>
           </ResponsiveContainer>
           <div>
             <p>
-              Current classification performance: {score.toFixed(2)}% 
+              Current classification performance: {score.toFixed(2)}%
             </p>
             <table>
               <thead>
-            <tr>
-                <th></th>
-                <th>precision</th>
-                <th>recall</th>
-                <th>f1-score</th>
-                <th>support</th>
-            </tr>
-          </thead>
+                <tr>
+                  <th></th>
+                  <th>precision</th>
+                  <th>recall</th>
+                  <th>f1-score</th>
+                  <th>support</th>
+                </tr>
+              </thead>
               <tbody>
-                {Object.entries(report).map((key) => 
+                {Object.entries(report).map((key) =>
                   <tr key={key[0]}>
                     {(() => {
-                      switch (key[0]) { 
+                      switch (key[0]) {
                         case "accuracy": return (
-                        [<td key={0}>{key[0]}</td>,
-                        <td key={1}></td>,
-                        <td key={2}></td>,
-                        <td key={3}>{key[1].toFixed(2)}</td>,
-                        <td key={4}></td>]);
+                          [<td key={0}>{key[0]}</td>,
+                          <td key={1}></td>,
+                          <td key={2}></td>,
+                          <td key={3}>{key[1].toFixed(2)}</td>,
+                          <td key={4}></td>]);
                         case "labels": return null
                         default: return (
-                        [<td key={key[0]}>{key[0]}</td>,
-                        Object.entries(key[1]).map((val) => (
-                          <td key={val[1]}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
-                        ))]);
-                      }})()}
+                          [<td key={key[0]}>{key[0]}</td>,
+                          Object.entries(key[1]).map((val) => (
+                            <td key={val[1]}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
+                          ))]);
+                      }
+                    })()}
                   </tr>)}
               </tbody>
             </table>
