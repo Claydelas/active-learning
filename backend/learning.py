@@ -101,31 +101,25 @@ class Learning():
         self.labeled_pool = self.dataset[self.dataset.target.notnull()]
         self.unlabeled_pool = self.dataset[self.dataset.target.isnull()]
 
-    def split(self, pool: DataFrame, y: str = 'target'):
-        # split into training and testing subsets
-        # ensures at least 5 samples per class for initial training and testing
+    def split(self, pool: DataFrame, y: str = 'target', test_size = 0.1):
         labels = len(self.labeled_pool.index)
         if labels >= 100:
-            X_labeled, X_train_test = train_test_split(pool, random_state=42, test_size=0.2, stratify=pool[y])
-            X_train, X_test = train_test_split(X_train_test, random_state=42, test_size=0.5, stratify=X_train_test[y])
-            
-            X_raw = pd.concat([X_labeled, X_train])
+            train, test = train_test_split(pool, random_state=42, test_size=test_size)
 
-            self.X_train_raw = X_raw.drop(y, axis=1)
+            self.X_train_raw = train.drop(y, axis=1)
             self.X_train = self.build_features(self.X_train_raw, self.columns)
-            self.y_train = X_raw[y]
+            self.y_train = train[y]
 
-            self.X_test_raw = X_test.drop(y, axis=1)
+            self.X_test_raw = test.drop(y, axis=1)
             self.X_test = self.build_features(self.X_test_raw, self.columns)
-            self.y_test = X_test[y]
+            self.y_test = test[y]
         elif labels >= 20:
-            self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=0.2, stratify=pool[y])
+            self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=test_size)
             self.X_train, self.X_test = self.build_features(self.X_train_raw, self.columns), self.build_features(self.X_test_raw, self.columns)
         else:
-            pass
-            #raise Exception("Not enough labeled samples to fit classifier and generate test set")
+            raise Exception("Not enough labeled samples to fit classifier and generate test set")
         self.labeled_size = len(self.X_train_raw.index)
-        self.dataset_size = len(self.X_train_raw.index)
+        self.dataset_size = len(self.dataset.index) - len(self.X_test_raw.index)
 
     # builds and stacks feature matrices to obtain a single matrix used for sampling and training
     def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
