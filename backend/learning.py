@@ -9,6 +9,7 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import numpy as np
 import gensim
+import gensim.downloader as api
 
 from sklearn.metrics import f1_score, classification_report
 from sklearn.model_selection import train_test_split
@@ -16,7 +17,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 
 from modAL.utils.data import data_hstack, retrieve_rows
 
-Vectorizer = Union[TfidfVectorizer, gensim.models.doc2vec.Doc2Vec, gensim.models.word2vec.Word2Vec]
+Vectorizer = Union[TfidfVectorizer, gensim.models.doc2vec.Doc2Vec, gensim.models.word2vec.Word2Vec, gensim.models.keyedvectors.KeyedVectors]
 
 # base class for learning processes
 class Learning():
@@ -92,6 +93,10 @@ class Learning():
             train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row[documents]), [index]) for index, row in self.dataset.iterrows()]
             vectorizer.build_vocab(train_corpus)
             vectorizer.train(train_corpus, total_examples=vectorizer.corpus_count, epochs=vectorizer.epochs)
+        elif isinstance(self.vectorizer, gensim.models.word2vec.Word2Vec):
+            # load pre-trained Word2Vec model
+            vectorizer = api.load('glove-twitter-50')
+            self.vectorizer = vectorizer
         else: raise Exception("undefined behaviour for specified vectorizer")
         return vectorizer
 
@@ -142,6 +147,22 @@ class Learning():
             return vectorizer.transform(documents)
         elif isinstance(vectorizer, gensim.models.doc2vec.Doc2Vec):
             return np.array([vectorizer.infer_vector(gensim.utils.simple_preprocess(x)) for x in documents])
+        elif isinstance(self.vectorizer, gensim.models.keyedvectors.KeyedVectors):
+            wset = set(self.vectorizer.wv.index2word)
+            return np.array([self._avg_w2v_(x, wset) for x in documents])
+
+    def _avg_w2v_(self, doc, wset):
+        featureVec = np.zeros((self.vectorizer.vector_size,), dtype="float32")
+        nwords = 0
+        words = doc.split()
+        for word in words:
+            if word in wset:
+                nwords = nwords+1
+                featureVec = np.add(featureVec, self.vectorizer[word])
+
+        if nwords>0:
+            featureVec = np.divide(featureVec, nwords)
+        return featureVec
 
     # utility function that returns a row as a 2d np array regardless of matrix format
     def __get_row__(self, feature_matrix, idx: int): 

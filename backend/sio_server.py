@@ -1,5 +1,4 @@
 from logging import Logger
-import active_learning
 from flask import Flask, request
 import modAL.uncertainty
 from flask_socketio import SocketIO
@@ -28,7 +27,6 @@ class Server():
                 'text': learning.X_pool_raw.iloc[idx].tweet,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'series': learning.accuracy_scores,
-                'strategy': 'uncertainty',
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
@@ -38,7 +36,6 @@ class Server():
         else:
             self.sio.emit('end', {
                 'series': learning.accuracy_scores,
-                'strategy': 'uncertainty',
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
