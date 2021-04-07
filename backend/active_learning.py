@@ -25,11 +25,12 @@ class ActiveLearning(Learning):
                  dataset: DataFrame = None,
                  columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
                  vectorizer: Vectorizer = None,
+                 preprocess: bool = False,
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
                  start: bool = False,
                  target_score: float = 80.00,
                  n_queries: int = None):
-        super().__init__(estimator, dataset, columns, vectorizer, extra_processing)
+        super().__init__(estimator, dataset, columns, vectorizer, preprocess, extra_processing, start)
         assert callable(query_strategy), 'query_strategy must be callable'
         self.query_strategy = query_strategy
         self.target_score = target_score
@@ -41,20 +42,21 @@ class ActiveLearning(Learning):
         )
 
         # start webserver 
-        if start: self.start()
+        if start:
+            self.start_server()
 
     # utility function that provides a shortcut for building the active learning workflow
-    def start(self,):
-        self.process()
-        self.learn_text_model()
-        self.partition()
-        self.split(self.labeled_pool)
-        self.fit(X=self.X_train, y=self.y_train)
-        self.auto_teach(self.n_queries)
+    def start(self, auto:bool = False):
+        super().start()
+        if auto: self.auto_teach(self.n_queries)
         self.start_server()
 
-    def split(self, pool: DataFrame, y: str = 'target', test_size = 0.1, train_size = 0.01):
-        labels = len(self.labeled_pool.index)
+    def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1, train_size = 0.01):
+
+        if pool is None: pool = self.dataset[self.dataset.target.notnull()]
+        unlabeled_frame = self.dataset[self.dataset.target.isnull()]
+
+        labels = len(pool.index)
         if labels >= 100:
             pool_train, test = train_test_split(pool, random_state=42, test_size=test_size)
             self.X_test_raw = test.drop(y, axis=1)
@@ -69,7 +71,7 @@ class ActiveLearning(Learning):
 
             # merge with previously unlabled instances if any
             unlabeled_pool[y] = np.nan
-            X_pool = pd.concat([unlabeled_pool, self.unlabeled_pool])
+            X_pool = pd.concat([unlabeled_pool, unlabeled_frame])
 
             self.X_pool_raw = X_pool.drop(y, axis=1)
             self.X_pool = self.build_features(self.X_pool_raw, self.columns)
@@ -78,14 +80,14 @@ class ActiveLearning(Learning):
         elif labels >= 20:
             self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=0.5, stratify=pool[y])
             self.X_train, self.X_test = self.build_features(self.X_train_raw, self.columns), self.build_features(self.X_test_raw, self.columns)
-            self.X_pool_raw = self.unlabeled_pool.drop(y, axis=1)
+            self.X_pool_raw = unlabeled_frame.drop(y, axis=1)
             self.X_pool = self.build_features(self.X_pool_raw, self.columns)
             self.labeled_size = len(self.X_train_raw.index)
             self.dataset_size = len(self.dataset.index) - len(self.X_test_raw.index)
         else:
-            self.X_pool_raw = self.unlabeled_pool.drop(y, axis=1)
+            self.X_pool_raw = unlabeled_frame.drop(y, axis=1)
             self.X_pool = self.build_features(self.X_pool_raw, self.columns)
-            self.labeled_size = len(self.labeled_pool.index)
+            self.labeled_size = labels
             self.dataset_size = len(self.dataset.index)
             #raise Exception("Not enough labeled samples to fit classifier and generate test set")
         
@@ -95,7 +97,7 @@ class ActiveLearning(Learning):
             idx, sample = self.learner.query(self.X_pool)
             idx = int(idx)
             raw_idx = self.X_pool_raw.iloc[idx].name
-            self.learner.teach(sample, np.array([self.labeled_pool.loc[raw_idx].target], dtype=int))
+            self.learner.teach(sample, np.array([self.dataset.loc[raw_idx].target], dtype=int))
             self.labeled_size += 1
             # remove learned sample from pool
             self.X_pool_raw = self.X_pool_raw.drop(raw_idx)
@@ -119,6 +121,7 @@ class ActiveLearning(Learning):
         # teach new sample
         #logging.info(f'-# Teaching instance: \n idx {idx}, \n label {label}, \n tweet: {text}, \n words: {self.X_pool_raw.iloc[idx].tweet_clean} #-')
         self.learner.teach(self.__get_row__(self.X_pool, idx), y_new)
+        self.dataset.at[self.X_pool_raw.iloc[idx].name, 'target'] = label
         self.labeled_size += 1
 
         # remove learned sample from pool

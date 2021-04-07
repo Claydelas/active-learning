@@ -26,7 +26,9 @@ class Learning():
                  dataset: DataFrame = None,
                  columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
                  vectorizer: Vectorizer = None,
-                 extra_processing: Callable[[DataFrame], DataFrame] = None):
+                 preprocess: bool = False,
+                 extra_processing: Callable[[DataFrame], DataFrame] = None,
+                 start: bool = False):
 
         logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -56,6 +58,19 @@ class Learning():
         if vectorizer is None:
             self.vectorizer = TfidfVectorizer(ngram_range=(1,3))
         else: self.vectorizer = vectorizer
+
+        self.preprocess = preprocess
+
+        # start
+        if start:
+            self.start()
+
+    def start(self):
+        if self.preprocess: self.process()
+        self.learn_text_model()
+        self.split()
+        self.fit(X=self.X_train, y=self.y_train)
+
 
     # extracts features from text and prepares it for vectorization
     def process(self,) -> DataFrame:
@@ -100,14 +115,12 @@ class Learning():
         else: raise Exception("undefined behaviour for specified vectorizer")
         return vectorizer
 
-    # partitions dataset into unlabeled, training and testing subsets
-    def partition(self):
-        # partition dataset into labeled and unlabled samples
-        self.labeled_pool = self.dataset[self.dataset.target.notnull()]
-        self.unlabeled_pool = self.dataset[self.dataset.target.isnull()]
 
-    def split(self, pool: DataFrame, y: str = 'target', test_size = 0.1):
-        labels = len(self.labeled_pool.index)
+    def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1):
+
+        if pool is None: pool = self.dataset[self.dataset.target.notnull()]
+
+        labels = len(pool.index)
         if labels >= 100:
             train, test = train_test_split(pool, random_state=42, test_size=test_size)
 
