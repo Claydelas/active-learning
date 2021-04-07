@@ -69,6 +69,7 @@ class Learning():
         if start:
             self.start()
 
+
     def start(self):
         if self.preprocess: self.process()
         if self.learn_vectorizer: self.learn_text_model()
@@ -100,6 +101,7 @@ class Learning():
         self.columns = clean_columns
         self.save("data/dataset_processed.pkl")
         return self.dataset
+
 
     # trains a vectorizer on a set of documents
     def learn_text_model(self, vectorizer: Vectorizer = None, documents: str = 'tweet_clean') -> Vectorizer:
@@ -138,6 +140,7 @@ class Learning():
         self.labeled_size = len(train.index)
         self.dataset_size = len(self.dataset.index) - len(test.index)
 
+
     # builds and stacks feature matrices to obtain a single matrix used for sampling and training
     def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
         blocks = []
@@ -151,6 +154,7 @@ class Learning():
                 blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
         return data_hstack(blocks)
 
+
     # utility function that provides a uniform method for vectorizing text via different vectorizers
     def _vectorize_(self, documents, vectorizer: Vectorizer = None):
         if vectorizer is None:
@@ -163,7 +167,9 @@ class Learning():
             wset = set(self.vectorizer.wv.index2word)
             return np.array([self._avg_w2v_(x, wset) for x in documents])
 
+
     def _avg_w2v_(self, doc, wset):
+        '''Produces the vector for a text based on the vectors of each individual word in @doc.'''
         featureVec = np.zeros((self.vectorizer.vector_size,), dtype="float32")
         nwords = 0
         words = doc.split()
@@ -176,22 +182,27 @@ class Learning():
             featureVec = np.divide(featureVec, nwords)
         return featureVec
 
-    # utility function that returns a row as a 2d np array regardless of matrix format
-    def _get_row_(self, feature_matrix, idx: int): 
+
+    def _get_row_(self, feature_matrix, idx: int):
+        '''Utility function that returns row @idx from @feature_matrix as a 2d np array regardless of matrix format.''' 
         if isinstance(feature_matrix, np.ndarray):
             return retrieve_rows(feature_matrix, [idx])
         else:
             return retrieve_rows(feature_matrix, idx)
 
+
     def fit(self, X, y):
         self.estimator.fit(X=X, y=y)
         return self.estimator
 
+
     def f1_score(self, X, y, average = 'micro'):
         return f1_score(y_pred=self.estimator.predict(X), y_true=y, average=average)
 
+
     def classification_report(self, X, y):
         return classification_report(y_pred=self.estimator.predict(X), y_true=y, output_dict=True)
+
 
     def save(self, path:str):
         self.dataset.to_pickle(path)

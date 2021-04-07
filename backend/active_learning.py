@@ -46,11 +46,13 @@ class ActiveLearning(Learning):
         if start:
             self.start_server()
 
+
     # utility function that provides a shortcut for building the active learning workflow
     def start(self, auto:bool = False):
         super().start()
         if auto: self.auto_teach(self.n_queries)
         self.start_server()
+
 
     def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1, train_size = 0.01):
 
@@ -106,6 +108,7 @@ class ActiveLearning(Learning):
             # store accuracy metric after training
             self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
 
+
     # utility function used to teach an active learner a new sample tweet from a json object {idx: i, hash: h, label: l}
     # after being learned, the tweet is removed from the sampling pool and the new model performance is recorded
     def teach(self, tweet: Dict[str, Union[int, str]], hashed = False):
@@ -132,10 +135,12 @@ class ActiveLearning(Learning):
         # store accuracy metric after training
         self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
 
+
     # starts an instance of the backend server used by the labeling web-app
     def start_server(self):
         server = Server(self, logging.getLogger())
         server.run()
+
 
     def fit(self, X, y):
         self.learner.fit(X=X, y=y)
