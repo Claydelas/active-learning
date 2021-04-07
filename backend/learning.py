@@ -125,27 +125,25 @@ class Learning():
         if labels >= 100:
             train, test = train_test_split(pool, random_state=42, test_size=test_size)
 
-            self.X_train_raw = train.drop(y, axis=1)
-            self.X_train = self.build_features(self.X_train_raw, self.columns)
+            self.X_train = self.build_features(train, self.columns)
             self.y_train = train[y]
 
-            self.X_test_raw = test.drop(y, axis=1)
-            self.X_test = self.build_features(self.X_test_raw, self.columns)
+            self.X_test = self.build_features(test, self.columns)
             self.y_test = test[y]
         elif labels >= 20:
-            self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=test_size)
-            self.X_train, self.X_test = self.build_features(self.X_train_raw, self.columns), self.build_features(self.X_test_raw, self.columns)
+            train, test, self.y_train, self.y_test = train_test_split(pool, pool[y], random_state=42, test_size=test_size)
+            self.X_train, self.X_test = self.build_features(train, self.columns), self.build_features(test, self.columns)
         else:
             raise Exception("Not enough labeled samples to fit classifier and generate test set")
-        self.labeled_size = len(self.X_train_raw.index)
-        self.dataset_size = len(self.dataset.index) - len(self.X_test_raw.index)
+        self.labeled_size = len(train.index)
+        self.dataset_size = len(self.dataset.index) - len(test.index)
 
     # builds and stacks feature matrices to obtain a single matrix used for sampling and training
     def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
         blocks = []
         for column, type in columns:
             if type == 'text' or type == 'tweet':
-                blocks.append(self.__vectorize__(pool[column]))
+                blocks.append(self._vectorize_(pool[column]))
             elif type == 'numeric':
                 # TODO: scale numeric features
                 blocks.append(pool[column].values.reshape(-1,1))
@@ -154,7 +152,7 @@ class Learning():
         return data_hstack(blocks)
 
     # utility function that provides a uniform method for vectorizing text via different vectorizers
-    def __vectorize__(self, documents, vectorizer: Vectorizer = None):
+    def _vectorize_(self, documents, vectorizer: Vectorizer = None):
         if vectorizer is None:
             vectorizer = self.vectorizer
         if isinstance(vectorizer, TfidfVectorizer):
@@ -179,7 +177,7 @@ class Learning():
         return featureVec
 
     # utility function that returns a row as a 2d np array regardless of matrix format
-    def __get_row__(self, feature_matrix, idx: int): 
+    def _get_row_(self, feature_matrix, idx: int): 
         if isinstance(feature_matrix, np.ndarray):
             return retrieve_rows(feature_matrix, [idx])
         else:

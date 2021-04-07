@@ -60,34 +60,35 @@ class ActiveLearning(Learning):
         labels = len(pool.index)
         if labels >= 100:
             pool_train, test = train_test_split(pool, random_state=42, test_size=test_size)
-            self.X_test_raw = test.drop(y, axis=1)
-            self.X_test = self.build_features(self.X_test_raw, self.columns)
+            self.X_test = self.build_features(test, self.columns)
             self.y_test = test[y]
 
             unlabeled_pool, train = train_test_split(pool_train, random_state=42, test_size=train_size, stratify=pool_train[y])
 
-            self.X_train_raw = train.drop(y, axis=1)
-            self.X_train = self.build_features(self.X_train_raw, self.columns)
+            self.X_train = self.build_features(train, self.columns)
             self.y_train = train[y].to_numpy()
 
             # merge with previously unlabled instances if any
-            unlabeled_pool[y] = np.nan
             X_pool = pd.concat([unlabeled_pool, unlabeled_frame])
 
-            self.X_pool_raw = X_pool.drop(y, axis=1)
-            self.X_pool = self.build_features(self.X_pool_raw, self.columns)
-            self.labeled_size = len(self.X_train_raw.index)
-            self.dataset_size = len(self.dataset.index) - len(self.X_test_raw.index)
+            self.idx_map = dict(enumerate(X_pool.index))
+            self.X_pool = self.build_features(X_pool, self.columns)
+
+            self.labeled_size = len(train.index)
+            self.dataset_size = len(self.dataset.index) - len(test.index)
         elif labels >= 20:
-            self.X_train_raw, self.X_test_raw, self.y_train, self.y_test = train_test_split(pool.drop(y, axis=1), pool[y], random_state=42, test_size=0.5, stratify=pool[y])
-            self.X_train, self.X_test = self.build_features(self.X_train_raw, self.columns), self.build_features(self.X_test_raw, self.columns)
-            self.X_pool_raw = unlabeled_frame.drop(y, axis=1)
-            self.X_pool = self.build_features(self.X_pool_raw, self.columns)
-            self.labeled_size = len(self.X_train_raw.index)
-            self.dataset_size = len(self.dataset.index) - len(self.X_test_raw.index)
+            train, test, self.y_train, self.y_test = train_test_split(pool, pool[y], random_state=42, test_size=0.5, stratify=pool[y])
+            self.X_train, self.X_test = self.build_features(train, self.columns), self.build_features(test, self.columns)
+            
+            self.idx_map = dict(enumerate(unlabeled_frame.index))
+            self.X_pool = self.build_features(unlabeled_frame, self.columns)
+
+            self.labeled_size = len(train.index)
+            self.dataset_size = len(self.dataset.index) - len(test.index)
         else:
-            self.X_pool_raw = unlabeled_frame.drop(y, axis=1)
-            self.X_pool = self.build_features(self.X_pool_raw, self.columns)
+            self.idx_map = dict(enumerate(unlabeled_frame.index))
+            self.X_pool = self.build_features(unlabeled_frame, self.columns)
+
             self.labeled_size = labels
             self.dataset_size = len(self.dataset.index)
             #raise Exception("Not enough labeled samples to fit classifier and generate test set")
@@ -97,11 +98,10 @@ class ActiveLearning(Learning):
             # retrieve most uncertain instance
             idx, sample = self.learner.query(self.X_pool)
             idx = int(idx)
-            raw_idx = self.X_pool_raw.iloc[idx].name
-            self.learner.teach(sample, np.array([self.dataset.loc[raw_idx].target], dtype=int))
+            dataset_idx = self.idx_map.get(idx)
+            self.learner.teach(sample, np.array([self.dataset.loc[dataset_idx].target], dtype=int))
             self.labeled_size += 1
             # remove learned sample from pool
-            self.X_pool_raw = self.X_pool_raw.drop(raw_idx)
             self.X_pool = drop_rows(self.X_pool, idx)
             # store accuracy metric after training
             self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
@@ -112,21 +112,21 @@ class ActiveLearning(Learning):
         # extract data from tweet obj
         idx = int(tweet['idx'])
         label = int(tweet['label'])
-        if self.X_pool_raw.empty: return
-        text: str = self.X_pool_raw.iloc[idx].tweet
+        if self.X_pool.shape[0] == 0: return
+        dataset_idx = self.idx_map.get(idx)
+        text: str = self.dataset.loc[dataset_idx].tweet
         y_new: np.ndarray = np.array([label], dtype=int)
 
         # fail early if hashes don't match (web app out of sync)
         if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
 
         # teach new sample
-        #logging.info(f'-# Teaching instance: \n idx {idx}, \n label {label}, \n tweet: {text}, \n words: {self.X_pool_raw.iloc[idx].tweet_clean} #-')
-        self.learner.teach(self.__get_row__(self.X_pool, idx), y_new)
-        self.dataset.at[self.X_pool_raw.iloc[idx].name, 'target'] = label
+        #logging.info(f'-# Teaching instance: \n idx {idx}, \n label {label}, \n tweet: {text}, \n words: {self.dataset.loc[dataset_idx].tweet_clean} #-')
+        self.learner.teach(self._get_row_(self.X_pool, idx), y_new)
+        self.dataset.at[dataset_idx, 'target'] = label
         self.labeled_size += 1
 
         # remove learned sample from pool
-        self.X_pool_raw = self.X_pool_raw.drop(self.X_pool_raw.iloc[idx].name)
         self.X_pool = drop_rows(self.X_pool, idx)
 
         # store accuracy metric after training
