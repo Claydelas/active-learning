@@ -152,6 +152,7 @@ function App() {
                 {Object.entries(report).map((key) =>
                   <tr key={key[0]}>
                     {(() => {
+                      let i = 0;
                       switch (key[0]) {
                         case "accuracy": return (
                           [<td key={0}>{key[0]}</td>,
@@ -163,7 +164,7 @@ function App() {
                         default: return (
                           [<td key={key[0]}>{key[0]}</td>,
                           Object.entries(key[1]).map((val) => (
-                            <td key={val[1]}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
+                            <td key={i++}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
                           ))]);
                       }
                     })()}
