@@ -26,6 +26,7 @@ class Learning():
                  dataset: DataFrame = None,
                  columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
                  vectorizer: Vectorizer = None,
+                 learn_vectorizer: bool = False,
                  preprocess: bool = False,
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
                  start: bool = False):
@@ -57,7 +58,10 @@ class Learning():
         # default vectorizer
         if vectorizer is None:
             self.vectorizer = TfidfVectorizer(ngram_range=(1,3))
-        else: self.vectorizer = vectorizer
+            self.learn_vectorizer = True
+        else:
+            self.vectorizer = vectorizer
+            self.learn_vectorizer = learn_vectorizer
 
         self.preprocess = preprocess
 
@@ -67,7 +71,7 @@ class Learning():
 
     def start(self):
         if self.preprocess: self.process()
-        self.learn_text_model()
+        if self.learn_vectorizer: self.learn_text_model()
         self.split()
         self.fit(X=self.X_train, y=self.y_train)
 
@@ -109,10 +113,6 @@ class Learning():
             train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row[documents]), [index]) for index, row in self.dataset.iterrows()]
             vectorizer.build_vocab(train_corpus)
             vectorizer.train(train_corpus, total_examples=vectorizer.corpus_count, epochs=vectorizer.epochs)
-        elif isinstance(self.vectorizer, gensim.models.word2vec.Word2Vec):
-            # load pre-trained Word2Vec model
-            vectorizer = api.load('glove-twitter-50')
-            self.vectorizer = vectorizer
         else: raise Exception("undefined behaviour for specified vectorizer")
         return vectorizer
 
