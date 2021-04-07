@@ -31,6 +31,12 @@ function save(scores) {
   a.click();
 }
 
+function checkpoint() {
+  socket.emit("checkpoint", function (data) {
+    console.log(data);
+  })
+}
+
 function App() {
 
   const [tweet, setTweet] = useState({ idx: -1, text: "Tweet text will be displayed here" }); // queried tweet object
@@ -98,6 +104,7 @@ function App() {
           <button onClick={() => malicious(tweet)} disabled={tweet.idx < 0}>Malicious</button>
           <button onClick={() => refresh()}>↻</button>
           <button onClick={() => save(scoreSeries)}>Save</button>
+          <button onClick={() => checkpoint()}>⚑</button>
           <span>{(uncertainty * 100).toFixed(2)}%</span>
         </div>
         <div className="stats">
@@ -114,6 +121,7 @@ function App() {
               }}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="labels"
+                domain={['dataMin', 'dataMax']}
                 type="number"
                 padding={{ left: 20, right: 20 }}>
                 <Label value="number of labels" offset={-30} position="insideBottom" fill="#82ca9d" />

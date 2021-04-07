@@ -88,3 +88,9 @@ class Server():
         def label(tweet):
             self.learning.teach(tweet, hashed=True)
             self.query(self.learning)
+
+        @self.sio.on('checkpoint')
+        def checkpoint():
+            path = "data/dataset_cp.pkl"
+            self.learning.save(path)
+            return f"Dataset saved @{path}"

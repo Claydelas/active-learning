@@ -94,6 +94,7 @@ class Learning():
                 # keep the column name
                 clean_columns.append((col,type))
         self.columns = clean_columns
+        self.save("data/dataset_processed.pkl")
         return self.dataset
 
     # trains a vectorizer on a set of documents
@@ -193,3 +194,6 @@ class Learning():
 
     def classification_report(self, X, y):
         return classification_report(y_pred=self.estimator.predict(X), y_true=y, output_dict=True)
+
+    def save(self, path:str):
+        self.dataset.to_pickle(path)
