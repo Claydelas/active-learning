@@ -80,7 +80,7 @@ class Learning():
 
     def start(self):
         if self.preprocess: self.process()
-        if self.learn_vectorizer: self.learn_text_model()
+        if self.learn_vectorizer: self.learn_text_model(vectorizer=self.vectorizer, dataset=self.dataset)
         self.split()
         self.fit(X=self.X_train, y=self.y_train)
         return self
@@ -113,15 +113,14 @@ class Learning():
 
 
     # trains a vectorizer on a set of documents
-    def learn_text_model(self, vectorizer: Vectorizer = None, documents: str = 'tweet_clean') -> Vectorizer:
-        if vectorizer is None:
-            vectorizer = self.vectorizer 
+    @staticmethod
+    def learn_text_model(vectorizer: Vectorizer, dataset: DataFrame, documents: str = 'tweet_clean') -> Vectorizer:
         if isinstance(vectorizer, TfidfVectorizer):
             # learn TF-IDF language model
-            vectorizer.fit(self.dataset[documents])
-        elif isinstance(self.vectorizer, gensim.models.doc2vec.Doc2Vec):
+            vectorizer.fit(dataset[documents])
+        elif isinstance(vectorizer, gensim.models.doc2vec.Doc2Vec):
             # learn Doc2Vec language model
-            train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row[documents]), [index]) for index, row in self.dataset.iterrows()]
+            train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row[documents]), [index]) for index, row in dataset.iterrows()]
             vectorizer.build_vocab(train_corpus)
             vectorizer.train(train_corpus, total_examples=vectorizer.corpus_count, epochs=vectorizer.epochs)
         else: raise Exception("undefined behaviour for specified vectorizer")
@@ -218,14 +217,19 @@ class Learning():
             os.makedirs('data/processed')
         self.dataset.to_pickle(path)
 
-    def results(self, extra: str):
-        if not os.path.exists('results'):
-            os.makedirs('results')
-        with open(f'results/{self.name}-{extra}.json', 'w', encoding='utf-8') as f:
-            if len(self.accuracy_scores) > 0:
-                json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
-                return self.accuracy_scores
-            else:
-                results = [self.classification_report(self.X_test, self.y_test)]
-                json.dump(results, f, ensure_ascii=False, indent=4)
-                return results
+    def results(self, extra: str ='', save:bool = False):
+        if save:
+            if not os.path.exists('results'):
+                os.makedirs('results')
+            with open(f'results/{self.name}-{extra}.json', 'w', encoding='utf-8') as f:
+                if len(self.accuracy_scores) > 0:
+                    json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
+                    return self.accuracy_scores
+                else:
+                    results = [self.classification_report(self.X_test, self.y_test)]
+                    json.dump(results, f, ensure_ascii=False, indent=4)
+                    return results
+
+        if len(self.accuracy_scores) > 0:
+            return self.accuracy_scores
+        return [self.classification_report(self.X_test, self.y_test)]
