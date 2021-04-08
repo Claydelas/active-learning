@@ -91,6 +91,6 @@ class Server():
 
         @self.sio.on('checkpoint')
         def checkpoint():
-            path = "data/dataset_cp.pkl"
+            path = f"data/{self.learning.name}_cp.pkl"
             self.learning.save(path)
             return f"Dataset saved @{path}"

@@ -1,4 +1,4 @@
-import logging, sys
+import logging, sys, json, os
 from typing import Callable, Collection, Dict, Tuple, Union
 
 from sklearn.base import BaseEstimator
@@ -23,13 +23,14 @@ Vectorizer = Union[TfidfVectorizer, gensim.models.doc2vec.Doc2Vec, gensim.models
 class Learning():
     def __init__(self,
                  estimator: BaseEstimator,
-                 dataset: DataFrame = None,
-                 columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
+                 dataset: DataFrame,
+                 columns: Collection[Tuple[str, str]],
                  vectorizer: Vectorizer = None,
                  learn_vectorizer: bool = False,
                  preprocess: bool = False,
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
-                 start: bool = False):
+                 start: bool = False,
+                 name: str = 'dataset'):
 
         logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -38,9 +39,14 @@ class Learning():
         self.estimator = estimator
 
         # default dataset
-        if dataset is None: dataset = pd.read_csv("../data/dataset.csv", sep='\t', index_col=0)
+        if dataset is None:
+            raise Exception("Dataset is not a valid pandas dataframe.")
         # append target column to dataframe if it doesn't exist
         if not 'target' in dataset.columns: dataset['target'] = np.nan
+
+        if columns is None or len(columns) == 0:
+            raise Exception("Please specify data attributes/features as a list of tuples [(column, type)].")
+        
         # rename the attribute containing tweet text to "tweet"
         for col, type in columns:
             if type == 'tweet':
@@ -50,6 +56,8 @@ class Learning():
         if extra_processing is not None and callable(extra_processing): 
             dataset = extra_processing(dataset)
         self.dataset = dataset
+
+        self.name = name
 
         # rename the column containing tweet text to "tweet" (for feature extraction)
         self.columns = [('tweet', type) if type == 'tweet' else (col,type) for col, type in columns]
@@ -75,6 +83,7 @@ class Learning():
         if self.learn_vectorizer: self.learn_text_model()
         self.split()
         self.fit(X=self.X_train, y=self.y_train)
+        return self
 
 
     # extracts features from text and prepares it for vectorization
@@ -99,7 +108,7 @@ class Learning():
                 # keep the column name
                 clean_columns.append((col,type))
         self.columns = clean_columns
-        self.save("data/dataset_processed.pkl")
+        self.save(f"data/processed/{self.name}_processed.pkl")
         return self.dataset
 
 
@@ -205,4 +214,18 @@ class Learning():
 
 
     def save(self, path:str):
+        if not os.path.exists('data/processed'):
+            os.makedirs('data/processed')
         self.dataset.to_pickle(path)
+
+    def results(self, extra: str):
+        if not os.path.exists('results'):
+            os.makedirs('results')
+        with open(f'results/{self.name}-{extra}.json', 'w', encoding='utf-8') as f:
+            if len(self.accuracy_scores) > 0:
+                json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
+                return self.accuracy_scores
+            else:
+                results = [self.classification_report(self.X_test, self.y_test)]
+                json.dump(results, f, ensure_ascii=False, indent=4)
+                return results

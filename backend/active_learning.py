@@ -21,17 +21,18 @@ from modAL.models import ActiveLearner
 class ActiveLearning(Learning):
     def __init__(self,
                  estimator: BaseEstimator,
-                 query_strategy: Callable[...,np.ndarray] = modAL.uncertainty.uncertainty_sampling,
-                 dataset: DataFrame = None,
-                 columns: Collection[Tuple[str, str]] = [('tweet', 'tweet')],
+                 dataset: DataFrame,
+                 columns: Collection[Tuple[str, str]],
                  vectorizer: Vectorizer = None,
                  learn_vectorizer: bool = False,
                  preprocess: bool = False,
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
                  start: bool = False,
+                 name: str = 'dataset',
+                 query_strategy: Callable[...,np.ndarray] = modAL.uncertainty.uncertainty_sampling,
                  target_score: float = 80.00,
                  n_queries: int = None):
-        super().__init__(estimator, dataset, columns, vectorizer, learn_vectorizer, preprocess, extra_processing, start)
+        super().__init__(estimator, dataset, columns, vectorizer, learn_vectorizer, preprocess, extra_processing, start, name)
         assert callable(query_strategy), 'query_strategy must be callable'
         self.query_strategy = query_strategy
         self.target_score = target_score

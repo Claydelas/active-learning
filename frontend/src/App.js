@@ -27,7 +27,7 @@ function save(scores) {
   a.href = URL.createObjectURL(new Blob([JSON.stringify(scores, null, 2)], {
     type: "text/plain"
   }));
-  a.setAttribute("download", `scores-${new Date().toISOString()}.txt`);
+  a.setAttribute("download", `scores-${new Date().toISOString()}.json`);
   a.click();
 }
 

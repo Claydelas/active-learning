@@ -45,7 +45,7 @@ def fetch(queries: list, count, file, result_type='mixed'):
 
 
 if __name__ == "__main__":
-    keywords = ['nigger', 'retard', 'idiot', 'bitch', 'slut', 'tranny', 'braindead', 'fucker', 'ugly',
+    keywords = ['nigger', 'retard', 'idiot', 'bitch', 'braindead', 'fucker', 'ugly', 'nigga', 'imbecile',
                 'disgusting', 'black', 'hate', 'bully', 'cancel', 'die', 'kys', 'degenerate', 'incel',
                 'stupid', 'dumb', 'cunt', 'fucking', 'faggot', 'whore', 'fag', 'wanker', 'bastard',
                 'twat', 'dickhead', 'hoe', 'fat', 'love', 'good', 'peace', 'cool', 'stop', 'spread',
