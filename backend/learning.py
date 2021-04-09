@@ -2,6 +2,7 @@ import logging, sys, json, os
 from typing import Callable, Collection, Dict, Tuple, Union
 
 from sklearn.base import BaseEstimator
+from sklearn.preprocessing import StandardScaler
 
 import preprocess as pre
 
@@ -156,8 +157,8 @@ class Learning():
             if type == 'text' or type == 'tweet':
                 blocks.append(self._vectorize_(pool[column]))
             elif type == 'numeric':
-                # TODO: scale numeric features
-                blocks.append(pool[column].values.reshape(-1,1))
+                X = StandardScaler().fit_transform(pool[column].values.reshape(-1,1))
+                blocks.append(X)
             elif type == 'bool':
                 blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
         return data_hstack(blocks)
