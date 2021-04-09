@@ -137,6 +137,21 @@ class ActiveLearning(Learning):
         self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
 
 
+    def skip(self, tweet: Dict[str, Union[int, str]], hashed = False):
+        # extract data from tweet obj
+        idx = int(tweet['idx'])
+        if self.X_pool.shape[0] == 0: return
+        dataset_idx = self.idx_map.get(idx)
+        text: str = self.dataset.loc[dataset_idx].tweet
+
+        # fail early if hashes don't match (web app out of sync)
+        if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
+
+        # skip sample
+        self.X_pool = drop_rows(self.X_pool, idx)
+        self.dataset_size -= 1
+
+
     # starts an instance of the backend server used by the labeling web-app
     def start_server(self):
         server = Server(self, logging.getLogger())

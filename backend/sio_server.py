@@ -22,9 +22,10 @@ class Server():
         if learning.X_pool.shape[0] > 0:
             query_idx, query_sample = learning.learner.query(learning.X_pool)
             idx = int(query_idx)
+            dataset_idx = learning.idx_map.get(idx)
             self.sio.emit('init', {
                 'idx': idx,
-                'text': learning.X_pool_raw.iloc[idx].tweet,
+                'text': learning.dataset.loc[dataset_idx].tweet,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'series': learning.accuracy_scores,
                 'labeled_size': learning.labeled_size,
@@ -48,21 +49,23 @@ class Server():
         if learning.X_pool.shape[0] > 0:
             query_idx, query_sample = learning.learner.query(learning.X_pool)
             idx = int(query_idx)
+            dataset_idx = learning.idx_map.get(idx)
             self.sio.emit('query', {
                 'idx': idx,
-                'text': learning.X_pool_raw.iloc[idx].tweet,
+                'text': learning.dataset.loc[dataset_idx].tweet,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'labeled_size': learning.labeled_size,
-                'series': learning.accuracy_scores[-1],
-                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'],
-                'report': learning.accuracy_scores[-1]
+                'dataset_size': learning.dataset_size,
+                'series': learning.accuracy_scores[-1] if learning.accuracy_scores else {},
+                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
+                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
             })
         else:
             self.sio.emit('end', {
                 'labeled_size': learning.labeled_size,
                 'series': learning.accuracy_scores,
-                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'],
-                'report': learning.accuracy_scores[-1]
+                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
+                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
             })
 
     def bootstrap(self):
@@ -87,6 +90,11 @@ class Server():
         @self.sio.on('label')
         def label(tweet):
             self.learning.teach(tweet, hashed=True)
+            self.query(self.learning)
+
+        @self.sio.on('skip')
+        def skip(tweet):
+            self.learning.skip(tweet, hashed=True)
             self.query(self.learning)
 
         @self.sio.on('checkpoint')

@@ -16,6 +16,11 @@ function malicious(tweet) {
   socket.emit("label", { 'idx': tweet.idx, 'label': 1, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
 }
 
+function skip(tweet) {
+  console.log(`"${tweet.text}" --> skipped`);
+  socket.emit("skip", { 'idx': tweet.idx, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
+}
+
 function refresh() {
   console.log('refresh');
   socket.emit("refresh");
@@ -54,10 +59,16 @@ function App() {
       console.log(data);
       setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
-      setScoreSeries(score => [...score, data.series]);
+      if(JSON.stringify(data.series) !== '{}'){
+          setScoreSeries(score => 
+            (score.length > 0 && score[score.length - 1]['labels'] !== data.series['labels']) || (!score.length)
+            ? [...score, data.series]
+            : [...score]);
+        }
       setProgress(data.labeled_size);
+      setTotal(data.dataset_size);
       setScore(data.score * 100);
-      setReport(data.report);
+      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
@@ -67,12 +78,12 @@ function App() {
       console.log(data);
       setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
-      setScoreSeries(data.series);
+      if(JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
       setProgress(data.labeled_size);
       setTotal(data.dataset_size);
       setScore(data.score * 100);
       setTargetScore(data.target);
-      setReport(data.report);
+      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
@@ -81,12 +92,12 @@ function App() {
     socket.on("end", data => {
       console.log(data);
       setTweet({ idx: -1, text: "All samples labeled." });
-      setScoreSeries(data.series);
+      if(JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
       setProgress(data.labeled_size);
       if (data.dataset_size) setTotal(data.dataset_size);
       setScore(data.score * 100);
       if (data.target) setTargetScore(data.target);
-      setReport(data.report);
+      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
@@ -102,8 +113,9 @@ function App() {
         <div className="buttons">
           <button onClick={() => alright(tweet)} disabled={tweet.idx < 0}>Alright</button>
           <button onClick={() => malicious(tweet)} disabled={tweet.idx < 0}>Malicious</button>
+          <button onClick={() => skip(tweet)} disabled={tweet.idx < 0}>Skip</button>
+          <button onClick={() => save(scoreSeries) } disabled={!scoreSeries.length}>Save</button>
           <button onClick={() => refresh()}>↻</button>
-          <button onClick={() => save(scoreSeries)}>Save</button>
           <button onClick={() => checkpoint()}>⚑</button>
           <span>{(uncertainty * 100).toFixed(2)}%</span>
         </div>
@@ -122,6 +134,7 @@ function App() {
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="labels"
                 domain={['dataMin', 'dataMax']}
+                allowDecimals={false}
                 type="number"
                 padding={{ left: 20, right: 20 }}>
                 <Label value="number of labels" offset={-30} position="insideBottom" fill="#82ca9d" />
@@ -142,6 +155,7 @@ function App() {
               <Line type="monotone" dataKey={data => { return data['macro avg']['f1-score'] * 100 }} stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
             </LineChart>
           </ResponsiveContainer>
+          {!scoreSeries.length ? null :
           <div>
             <p>
               Current classification performance: {score.toFixed(2)}%
@@ -180,6 +194,7 @@ function App() {
               </tbody>
             </table>
           </div>
+          }
         </div>
       </div>
     </div>

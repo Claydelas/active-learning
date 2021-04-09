@@ -10,7 +10,6 @@ import pandas as pd
 from pandas.core.frame import DataFrame
 import numpy as np
 import gensim
-import gensim.downloader as api
 
 from sklearn.metrics import f1_score, classification_report
 from sklearn.model_selection import train_test_split
@@ -40,7 +39,7 @@ class Learning():
         self.estimator = estimator
 
         # default dataset
-        if dataset is None:
+        if dataset is None or not isinstance(dataset, DataFrame):
             raise Exception("Dataset is not a valid pandas dataframe.")
         # append target column to dataframe if it doesn't exist
         if not 'target' in dataset.columns: dataset['target'] = np.nan
