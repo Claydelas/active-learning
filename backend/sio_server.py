@@ -26,6 +26,7 @@ class Server():
             self.sio.emit('init', {
                 'idx': idx,
                 'text': learning.dataset.loc[dataset_idx].tweet,
+                'targets': learning.targets,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'series': learning.accuracy_scores,
                 'labeled_size': learning.labeled_size,

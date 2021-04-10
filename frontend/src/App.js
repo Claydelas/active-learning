@@ -6,14 +6,9 @@ const crypto = require('crypto');
 const io = require("socket.io-client");
 const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] });
 
-function alright(tweet) {
-  console.log(`"${tweet.text}" --> alright. --> 0`);
-  socket.emit("label", { 'idx': tweet.idx, 'label': 0, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
-}
-
-function malicious(tweet) {
-  console.log(`"${tweet.text}" --> malicious. --> 1`);
-  socket.emit("label", { 'idx': tweet.idx, 'label': 1, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
+function label(tweet, label) {
+  console.log(`"${tweet.text}" --> ${label}`);
+  socket.emit("label", { 'idx': tweet.idx, 'label': label, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
 }
 
 function skip(tweet) {
@@ -45,6 +40,7 @@ function checkpoint() {
 function App() {
 
   const [tweet, setTweet] = useState({ idx: -1, text: "Tweet text will be displayed here" }); // queried tweet object
+  const [targets, setTargets] = useState([{ 'val': 0, 'name': 'non-Malicious' }, { 'val': 1, 'name': 'Malicious' }]); // label choices
   const [uncertainty, setUncertainty] = useState(0.00); // uncertainty of currently displayed tweet
   const [progress, setProgress] = useState(0); // number of labeled data points in pool
   const [total, setTotal] = useState(0); // total number of data points in pool
@@ -59,16 +55,16 @@ function App() {
       console.log(data);
       setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
-      if(JSON.stringify(data.series) !== '{}'){
-          setScoreSeries(score => 
-            (score.length > 0 && score[score.length - 1]['labels'] !== data.series['labels']) || (!score.length)
+      if (JSON.stringify(data.series) !== '{}') {
+        setScoreSeries(score =>
+          (score.length > 0 && score[score.length - 1]['labels'] !== data.series['labels']) || (!score.length)
             ? [...score, data.series]
             : [...score]);
-        }
+      }
       setProgress(data.labeled_size);
       setTotal(data.dataset_size);
       setScore(data.score * 100);
-      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
+      if (JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
@@ -77,13 +73,14 @@ function App() {
     socket.on("init", data => {
       console.log(data);
       setTweet({ idx: data.idx, text: data.text });
+      if (data.targets) setTargets(data.targets)
       setUncertainty(data.uncertainty);
-      if(JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
+      if (JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
       setProgress(data.labeled_size);
       setTotal(data.dataset_size);
       setScore(data.score * 100);
       setTargetScore(data.target);
-      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
+      if (JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
@@ -92,32 +89,39 @@ function App() {
     socket.on("end", data => {
       console.log(data);
       setTweet({ idx: -1, text: "All samples labeled." });
-      if(JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
+      if (JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
       setProgress(data.labeled_size);
       if (data.dataset_size) setTotal(data.dataset_size);
       setScore(data.score * 100);
       if (data.target) setTargetScore(data.target);
-      if(JSON.stringify(data.report) !== '{}') setReport(data.report);
+      if (JSON.stringify(data.report) !== '{}') setReport(data.report);
     });
   }, []);
 
   return (
     <div className="App">
       <div className="App-main">
-        <p>
-          {progress} out of {total} data points labelled
-        </p>
+        {tweet.idx < 0 ? null :
+          <>
+            <span>{progress} out of {total} data points labelled</span>
+            <span>{(uncertainty * 100).toFixed(2)}% uncertain</span>
+          </>
+        }
         <div className="tweet">
           <span>{tweet.text}</span>
         </div>
+        {!targets.length || tweet.idx < 0 ? null :
+          <div className="buttons">
+            {Object.values(targets).map((target) =>
+              <button key={target.val} onClick={() => label(tweet, target.val)}>{target.name}</button>
+            )}
+          </div>
+        }
         <div className="buttons">
-          <button onClick={() => alright(tweet)} disabled={tweet.idx < 0}>Alright</button>
-          <button onClick={() => malicious(tweet)} disabled={tweet.idx < 0}>Malicious</button>
           <button onClick={() => skip(tweet)} disabled={tweet.idx < 0}>Skip</button>
-          <button onClick={() => save(scoreSeries) } disabled={!scoreSeries.length}>Save</button>
+          <button onClick={() => save(scoreSeries)} disabled={!scoreSeries.length}>Save</button>
+          <button onClick={() => checkpoint()} disabled={tweet.idx < 0}>⚑</button>
           <button onClick={() => refresh()}>↻</button>
-          <button onClick={() => checkpoint()}>⚑</button>
-          <span>{(uncertainty * 100).toFixed(2)}%</span>
         </div>
         <div className="stats">
           <ResponsiveContainer width="50%" height={500}>
@@ -156,44 +160,44 @@ function App() {
             </LineChart>
           </ResponsiveContainer>
           {!scoreSeries.length ? null :
-          <div>
-            <p>
-              Current classification performance: {score.toFixed(2)}%
-            </p>
-            <table>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>precision</th>
-                  <th>recall</th>
-                  <th>f1-score</th>
-                  <th>support</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(report).map((key) =>
-                  <tr key={key[0]}>
-                    {(() => {
-                      let i = 0;
-                      switch (key[0]) {
-                        case "accuracy": return (
-                          [<td key={0}>{key[0]}</td>,
-                          <td key={1}></td>,
-                          <td key={2}></td>,
-                          <td key={3}>{key[1].toFixed(2)}</td>,
-                          <td key={4}></td>]);
-                        case "labels": return null
-                        default: return (
-                          [<td key={key[0]}>{key[0]}</td>,
-                          Object.entries(key[1]).map((val) => (
-                            <td key={i++}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
-                          ))]);
-                      }
-                    })()}
-                  </tr>)}
-              </tbody>
-            </table>
-          </div>
+            <div>
+              <p>
+                Current classification performance: {score.toFixed(2)}%
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>precision</th>
+                    <th>recall</th>
+                    <th>f1-score</th>
+                    <th>support</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(report).map((key) =>
+                    <tr key={key[0]}>
+                      {(() => {
+                        let i = 0;
+                        switch (key[0]) {
+                          case "accuracy": return (
+                            [<td key={0}>{key[0]}</td>,
+                            <td key={1}></td>,
+                            <td key={2}></td>,
+                            <td key={3}>{key[1].toFixed(2)}</td>,
+                            <td key={4}></td>]);
+                          case "labels": return null
+                          default: return (
+                            [<td key={key[0]}>{key[0]}</td>,
+                            Object.entries(key[1]).map((val) => (
+                              <td key={i++}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
+                            ))]);
+                        }
+                      })()}
+                    </tr>)}
+                </tbody>
+              </table>
+            </div>
           }
         </div>
       </div>

@@ -29,10 +29,11 @@ class ActiveLearning(Learning):
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
                  start: bool = False,
                  name: str = 'dataset',
+                 targets = None,
                  query_strategy: Callable[...,np.ndarray] = modAL.uncertainty.uncertainty_sampling,
                  target_score: float = 80.00,
                  n_queries: int = None):
-        super().__init__(estimator, dataset, columns, vectorizer, learn_vectorizer, preprocess, extra_processing, start, name)
+        super().__init__(estimator, dataset, columns, vectorizer, learn_vectorizer, preprocess, extra_processing, start, name, targets)
         assert callable(query_strategy), 'query_strategy must be callable'
         self.query_strategy = query_strategy
         self.target_score = target_score
@@ -98,7 +99,7 @@ class ActiveLearning(Learning):
             # remove learned sample from pool
             self.X_pool = drop_rows(self.X_pool, idx)
             # store accuracy metric after training
-            self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
+            self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test, self.target_names), labels=self.labeled_size))
 
 
     # utility function used to teach an active learner a new sample tweet from a json object {idx: i, hash: h, label: l}
@@ -125,7 +126,7 @@ class ActiveLearning(Learning):
         self.X_pool = drop_rows(self.X_pool, idx)
 
         # store accuracy metric after training
-        self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test), labels=self.labeled_size))
+        self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test, self.target_names), labels=self.labeled_size))
 
 
     def skip(self, tweet: Dict[str, Union[int, str]], hashed = False):

@@ -30,7 +30,8 @@ class Learning():
                  preprocess: bool = False,
                  extra_processing: Callable[[DataFrame], DataFrame] = None,
                  start: bool = False,
-                 name: str = 'dataset'):
+                 name: str = 'dataset',
+                 targets = None):
 
         logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
@@ -58,6 +59,8 @@ class Learning():
         self.dataset = dataset
 
         self.name = name
+        self.targets = targets
+        self.target_names = [l.get('name') for l in targets] if targets else None
 
         # rename the column containing tweet text to "tweet" (for feature extraction)
         self.columns = [('tweet', type) if type == 'tweet' else (col,type) for col, type in columns]
@@ -186,8 +189,8 @@ class Learning():
             featureVec = np.divide(featureVec, nwords)
         return featureVec
 
-
-    def _get_row_(self, feature_matrix, idx: int):
+    @staticmethod
+    def _get_row_(feature_matrix, idx: int):
         '''Utility function that returns row @idx from @feature_matrix as a 2d np array regardless of matrix format.''' 
         if isinstance(feature_matrix, np.ndarray):
             return retrieve_rows(feature_matrix, [idx])
@@ -204,8 +207,8 @@ class Learning():
         return f1_score(y_pred=self.estimator.predict(X), y_true=y, average=average)
 
 
-    def classification_report(self, X, y):
-        return classification_report(y_pred=self.estimator.predict(X), y_true=y, output_dict=True)
+    def classification_report(self, X, y, targets = None):
+        return classification_report(y_pred=self.estimator.predict(X), y_true=y, target_names=targets, output_dict=True)
 
 
     def save(self, path:str):
@@ -222,13 +225,13 @@ class Learning():
                     json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
                     return self.accuracy_scores
                 else:
-                    results = [self.classification_report(self.X_test, self.y_test)]
+                    results = [self.classification_report(self.X_test, self.y_test, self.target_names)]
                     json.dump(results, f, ensure_ascii=False, indent=4)
                     return results
 
         if len(self.accuracy_scores) > 0:
             return self.accuracy_scores
-        return [self.classification_report(self.X_test, self.y_test)]
+        return [self.classification_report(self.X_test, self.y_test, self.target_names)]
 
     @staticmethod
     def _eq_split_(X, y, n_per_class, random_state=None):

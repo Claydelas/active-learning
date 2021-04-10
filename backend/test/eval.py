@@ -62,7 +62,9 @@ for v in options.get('vectorizer'):
             learned_v = Learning.learn_text_model(deepcopy(v), d['df'])
             transformers.append((learned_v,d))
 
+targets = [{'val': 0,'name': 'non-malicious'}, {'val': 1,'name': 'malicious'}]
 eval_scores = []
+seen = []
 
 for p in permutations:
 
@@ -72,17 +74,22 @@ for p in permutations:
     estimator = clone(p.get('classifier'))
     features = p.get('features')
     strategy = p.get('query_strategy')
+
     ml_name = f"{dataset['name']}-{estimator.__class__.__name__}-{transformer.__class__.__name__}-{features['name']}-ML"
-    ml = Learning(estimator=estimator,
-                  dataset=dataset['df'],
-                  columns=features['cols'],
-                  vectorizer=transformer,
-                  name=ml_name
-                  )
-    ml.start()
-    ml_results = ml.results(save=True)[-1]
-    eval_scores.append(dict(ml_results, name=ml_name))
-    del ml
+    if ml_name not in seen:
+        ml = Learning(estimator=estimator,
+                      dataset=dataset['df'],
+                      columns=features['cols'],
+                      vectorizer=transformer,
+                      name=ml_name,
+                      targets=targets
+                      )
+        ml.start()
+        ml_results = ml.results(save=True)[-1]
+        eval_scores.append(dict(ml_results, name=ml_name))
+        seen.append(ml_name)
+        del ml
+
     al_name = f"{dataset['name']}-{estimator.__class__.__name__}-{transformer.__class__.__name__}-{features['name']}-{strategy.__name__}-AL"
     al = ActiveLearning(estimator=estimator,
                   dataset=dataset['df'],
@@ -90,7 +97,8 @@ for p in permutations:
                   vectorizer=transformer,
                   query_strategy=strategy,
                   n_queries=100,
-                  name=al_name
+                  name=al_name,
+                  targets=targets
                   )
     al.start(auto=True, server=False)
     al_results = al.results(save=True)[-1]
