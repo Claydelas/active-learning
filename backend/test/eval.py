@@ -96,6 +96,6 @@ for p in permutations:
     al_results = al.results(save=True)[-1]
     eval_scores.append(dict(al_results, name=al_name))
     del al
-print(eval_scores)
-with open(f'results.json', 'w', encoding='utf-8') as f:
+print(json.dumps(eval_scores, indent=4))
+with open(f'results/results.json', 'w', encoding='utf-8') as f:
     json.dump(eval_scores, f, ensure_ascii=False, indent=4)

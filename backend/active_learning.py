@@ -55,18 +55,18 @@ class ActiveLearning(Learning):
         if server: self.start_server()
 
 
-    def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1, train_size = 0.01):
+    def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1, n_per_class = 1):
 
         if pool is None: pool = self.dataset[self.dataset.target.notnull()]
         unlabeled_frame = self.dataset[self.dataset.target.isnull()]
 
         labels = len(pool.index)
-        if labels >= 100:
+        if labels >= 50:
             pool_train, test = train_test_split(pool, random_state=42, test_size=test_size)
             self.X_test = self.build_features(test, self.columns)
             self.y_test = test[y]
 
-            unlabeled_pool, train = train_test_split(pool_train, random_state=42, test_size=train_size, stratify=pool_train[y])
+            unlabeled_pool, train = self._eq_split_(pool_train, pool_train[y], n_per_class=n_per_class, random_state=42)
 
             self.X_train = self.build_features(train, self.columns)
             self.y_train = train[y].to_numpy()
@@ -76,15 +76,6 @@ class ActiveLearning(Learning):
 
             self.idx_map = dict(enumerate(X_pool.index))
             self.X_pool = self.build_features(X_pool, self.columns)
-
-            self.labeled_size = len(train.index)
-            self.dataset_size = len(self.dataset.index) - len(test.index)
-        elif labels >= 20:
-            train, test, self.y_train, self.y_test = train_test_split(pool, pool[y], random_state=42, test_size=0.5, stratify=pool[y])
-            self.X_train, self.X_test = self.build_features(train, self.columns), self.build_features(test, self.columns)
-            
-            self.idx_map = dict(enumerate(unlabeled_frame.index))
-            self.X_pool = self.build_features(unlabeled_frame, self.columns)
 
             self.labeled_size = len(train.index)
             self.dataset_size = len(self.dataset.index) - len(test.index)

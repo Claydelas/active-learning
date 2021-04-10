@@ -131,7 +131,7 @@ class Learning():
         if pool is None: pool = self.dataset[self.dataset.target.notnull()]
 
         labels = len(pool.index)
-        if labels >= 100:
+        if labels >= 50:
             train, test = train_test_split(pool, random_state=42, test_size=test_size)
 
             self.X_train = self.build_features(train, self.columns)
@@ -139,9 +139,6 @@ class Learning():
 
             self.X_test = self.build_features(test, self.columns)
             self.y_test = test[y]
-        elif labels >= 20:
-            train, test, self.y_train, self.y_test = train_test_split(pool, pool[y], random_state=42, test_size=test_size)
-            self.X_train, self.X_test = self.build_features(train, self.columns), self.build_features(test, self.columns)
         else:
             raise Exception("Not enough labeled samples to fit classifier and generate test set")
         self.labeled_size = len(train.index)
@@ -232,3 +229,16 @@ class Learning():
         if len(self.accuracy_scores) > 0:
             return self.accuracy_scores
         return [self.classification_report(self.X_test, self.y_test)]
+
+    @staticmethod
+    def _eq_split_(X, y, n_per_class, random_state=None):
+        if random_state:
+            np.random.seed(random_state)
+        sampled = X.groupby(y, sort=False).apply(
+            lambda frame: frame.sample(n_per_class))
+        mask = sampled.index.get_level_values(1)
+    
+        X_train = X.drop(mask)
+        X_test = X.loc[mask]
+    
+        return X_train, X_test
