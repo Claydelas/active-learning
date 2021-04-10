@@ -123,7 +123,6 @@ class Learning():
             train_corpus = [gensim.models.doc2vec.TaggedDocument(gensim.utils.simple_preprocess(row[documents]), [index]) for index, row in dataset.iterrows()]
             vectorizer.build_vocab(train_corpus)
             vectorizer.train(train_corpus, total_examples=vectorizer.corpus_count, epochs=vectorizer.epochs)
-        else: raise Exception("undefined behaviour for specified vectorizer")
         return vectorizer
 
 
@@ -217,11 +216,11 @@ class Learning():
             os.makedirs('data/processed')
         self.dataset.to_pickle(path)
 
-    def results(self, extra: str ='', save:bool = False):
+    def results(self, name: str ='', save:bool = False):
         if save:
             if not os.path.exists('results'):
                 os.makedirs('results')
-            with open(f'results/{self.name}-{extra}.json', 'w', encoding='utf-8') as f:
+            with open(f'results/{name or self.name}.json', 'w', encoding='utf-8') as f:
                 if len(self.accuracy_scores) > 0:
                     json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
                     return self.accuracy_scores

@@ -49,10 +49,10 @@ class ActiveLearning(Learning):
 
 
     # utility function that provides a shortcut for building the active learning workflow
-    def start(self, auto:bool = False):
+    def start(self, auto:bool = False, server:bool = True):
         super().start()
         if auto: self.auto_teach(self.n_queries)
-        self.start_server()
+        if server: self.start_server()
 
 
     def split(self, pool: DataFrame = None, y: str = 'target', test_size = 0.1, train_size = 0.01):
