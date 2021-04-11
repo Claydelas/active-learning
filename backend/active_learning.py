@@ -75,13 +75,13 @@ class ActiveLearning(Learning):
             # merge with previously unlabled instances if any
             X_pool = pd.concat([unlabeled_pool, unlabeled_frame])
 
-            self.idx_map = dict(enumerate(X_pool.index))
+            self.X_pool_df = X_pool
             self.X_pool = self.build_features(X_pool, self.columns)
 
             self.labeled_size = len(train.index)
             self.dataset_size = len(self.dataset.index) - len(test.index)
         else:
-            self.idx_map = dict(enumerate(unlabeled_frame.index))
+            self.X_pool_df = unlabeled_frame
             self.X_pool = self.build_features(unlabeled_frame, self.columns)
 
             self.labeled_size = labels
@@ -93,11 +93,12 @@ class ActiveLearning(Learning):
             # retrieve most uncertain instance
             idx, sample = self.learner.query(self.X_pool)
             idx = int(idx)
-            dataset_idx = self.idx_map.get(idx)
+            dataset_idx = self.X_pool_df.iloc[idx].name
             self.learner.teach(sample, np.array([self.dataset.loc[dataset_idx].target], dtype=int))
             self.labeled_size += 1
             # remove learned sample from pool
             self.X_pool = drop_rows(self.X_pool, idx)
+            self.X_pool_df = self.X_pool_df.drop(dataset_idx)
             # store accuracy metric after training
             self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test, self.target_names), labels=self.labeled_size))
 
@@ -108,40 +109,48 @@ class ActiveLearning(Learning):
         # extract data from tweet obj
         idx = int(tweet['idx'])
         label = int(tweet['label'])
-        if self.X_pool.shape[0] == 0: return
-        dataset_idx = self.idx_map.get(idx)
-        text: str = self.dataset.loc[dataset_idx].tweet
+
+        if self.X_pool.shape[0] == 0: return False
+
+        row = self.X_pool_df.iloc[idx]
+        text: str = row.tweet
+        # fail early if hashes don't match (web app out of sync)
+        if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return False
+
+        dataset_idx = row.name
         y_new: np.ndarray = np.array([label], dtype=int)
 
-        # fail early if hashes don't match (web app out of sync)
-        if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
-
         # teach new sample
-        #logging.info(f'-# Teaching instance: \n idx {idx}, \n label {label}, \n tweet: {text}, \n words: {self.dataset.loc[dataset_idx].tweet_clean} #-')
         self.learner.teach(self._get_row_(self.X_pool, idx), y_new)
         self.dataset.at[dataset_idx, 'target'] = label
         self.labeled_size += 1
 
         # remove learned sample from pool
         self.X_pool = drop_rows(self.X_pool, idx)
+        self.X_pool_df = self.X_pool_df.drop(dataset_idx)
 
         # store accuracy metric after training
         self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test, self.target_names), labels=self.labeled_size))
+        return True
 
 
     def skip(self, tweet: Dict[str, Union[int, str]], hashed = False):
         # extract data from tweet obj
         idx = int(tweet['idx'])
-        if self.X_pool.shape[0] == 0: return
-        dataset_idx = self.idx_map.get(idx)
-        text: str = self.dataset.loc[dataset_idx].tweet
+        if self.X_pool.shape[0] == 0: return False
 
+        row = self.X_pool_df.iloc[idx]
+        text: str = row.tweet
         # fail early if hashes don't match (web app out of sync)
-        if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return
+        if hashed and tweet['hash'] != hashlib.md5(text.encode()).hexdigest(): return False
+        
+        dataset_idx = row.name
 
         # skip sample
         self.X_pool = drop_rows(self.X_pool, idx)
+        self.X_pool_df = self.X_pool_df.drop(dataset_idx)
         self.dataset_size -= 1
+        return True
 
 
     # starts an instance of the backend server used by the labeling web-app

@@ -22,10 +22,9 @@ class Server():
         if learning.X_pool.shape[0] > 0:
             query_idx, query_sample = learning.learner.query(learning.X_pool)
             idx = int(query_idx)
-            dataset_idx = learning.idx_map.get(idx)
             self.sio.emit('init', {
                 'idx': idx,
-                'text': learning.dataset.loc[dataset_idx].tweet,
+                'text': learning.X_pool_df.iloc[idx].tweet,
                 'targets': learning.targets,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'series': learning.accuracy_scores,
@@ -50,10 +49,9 @@ class Server():
         if learning.X_pool.shape[0] > 0:
             query_idx, query_sample = learning.learner.query(learning.X_pool)
             idx = int(query_idx)
-            dataset_idx = learning.idx_map.get(idx)
             self.sio.emit('query', {
                 'idx': idx,
-                'text': learning.dataset.loc[dataset_idx].tweet,
+                'text': learning.X_pool_df.iloc[idx].tweet,
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
@@ -90,13 +88,15 @@ class Server():
 
         @self.sio.on('label')
         def label(tweet):
-            self.learning.teach(tweet, hashed=True)
-            self.query(self.learning)
+            success = self.learning.teach(tweet, hashed=True)
+            if success:
+                self.query(self.learning)
 
         @self.sio.on('skip')
         def skip(tweet):
-            self.learning.skip(tweet, hashed=True)
-            self.query(self.learning)
+            success = self.learning.skip(tweet, hashed=True)
+            if success:
+                self.query(self.learning)
 
         @self.sio.on('checkpoint')
         def checkpoint():
