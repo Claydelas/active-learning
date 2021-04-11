@@ -54,7 +54,6 @@ function App() {
   // on component mount listen for queries
   useEffect(() => {
     socket.on("query", data => {
-      console.log(data);
       setTweet({ idx: data.idx, text: data.text });
       setUncertainty(data.uncertainty);
       if (JSON.stringify(data.series) !== '{}') {
@@ -73,7 +72,6 @@ function App() {
   // on component mount listen for init
   useEffect(() => {
     socket.on("init", data => {
-      console.log(data);
       setTweet({ idx: data.idx, text: data.text });
       if (data.targets) setTargets(data.targets)
       setUncertainty(data.uncertainty);
@@ -89,7 +87,6 @@ function App() {
   // on component mount listen for end
   useEffect(() => {
     socket.on("end", data => {
-      console.log(data);
       setTweet({ idx: -1, text: "All samples labeled." });
       if (JSON.stringify(data.series) !== '{}') setScoreSeries(data.series);
       setProgress(data.labeled_size);
@@ -125,43 +122,43 @@ function App() {
           <button className="button" onClick={() => checkpoint()} disabled={tweet.idx < 0}>⚑</button>
           <button className="button" onClick={() => refresh()}>↻</button>
         </div>
-        <div className="stats">
-          <ResponsiveContainer width="50%" height={500} className="graph">
-            <LineChart
-              width={500}
-              height={300}
-              data={scoreSeries}
-              margin={{
-                top: 10,
-                right: 45,
-                left: 45,
-                bottom: 45,
-              }}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="labels"
-                domain={['dataMin', 'dataMax']}
-                allowDecimals={false}
-                type="number"
-                padding={{ left: 20, right: 20 }}>
-                <Label value="number of labels" offset={-30} position="insideBottom" fill="#82ca9d" />
-              </XAxis>
-              <YAxis type="number"
-                domain={[0, 100]}
-                tickFormatter={tick => `${tick}%`}>
-                <Label value="f1-score" angle={-90} offset={-30} position="insideLeft" fill="#82ca9d" />
-              </YAxis>
-              <Tooltip formatter={score => [`${score}%`, "f1-score"]}
-                labelStyle={{ color: "#282c34" }}
-                labelFormatter={label => `labels: ${label},`}
-                contentStyle={{ borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px" }}
-                itemStyle={{ color: "#282c34" }} />
-              <ReferenceLine y={targetScore} stroke="#8884d8">
-                <Label value="Learning Target" fill="#8884d8" position="top" />
-              </ReferenceLine>
-              <Line type="monotone" dataKey={data => { return data['macro avg']['f1-score'] * 100 }} stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
-            </LineChart>
-          </ResponsiveContainer>
-          {!scoreSeries.length ? null :
+        {!scoreSeries.length ? null :
+          <div className="stats">
+            <ResponsiveContainer width="50%" height={500} className="graph">
+              <LineChart
+                width={500}
+                height={300}
+                data={scoreSeries}
+                margin={{
+                  top: 10,
+                  right: 45,
+                  left: 45,
+                  bottom: 45,
+                }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="labels"
+                  domain={['dataMin', 'dataMax']}
+                  allowDecimals={false}
+                  type="number"
+                  padding={{ left: 20, right: 20 }}>
+                  <Label value="number of labels" offset={-30} position="insideBottom" fill="#82ca9d" />
+                </XAxis>
+                <YAxis type="number"
+                  domain={[0, 100]}
+                  tickFormatter={tick => `${tick}%`}>
+                  <Label value="f1-score" angle={-90} offset={-30} position="insideLeft" fill="#82ca9d" />
+                </YAxis>
+                <Tooltip formatter={score => [`${score}%`, "f1-score"]}
+                  labelStyle={{ color: "#282c34" }}
+                  labelFormatter={label => `labels: ${label},`}
+                  contentStyle={{ borderRadius: "9px", fontSize: "18px", backgroundColor: "rgba(248, 248, 248, 0.85)", lineHeight: "20px" }}
+                  itemStyle={{ color: "#282c34" }} />
+                <ReferenceLine y={targetScore} stroke="#8884d8">
+                  <Label value="Learning Target" fill="#8884d8" position="top" />
+                </ReferenceLine>
+                <Line type="monotone" dataKey={data => { return data['macro avg']['f1-score'] * 100 }} stroke="#82ca9d" dot={false} activeDot={{ r: 8 }} />
+              </LineChart>
+            </ResponsiveContainer>
             <div>
               <p>
                 Current classification performance: <b>{score.toFixed(2)}%</b>
@@ -200,8 +197,8 @@ function App() {
                 </tbody>
               </table>
             </div>
-          }
-        </div>
+          </div>
+        }
       </div>
     </div>
   );
