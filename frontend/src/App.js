@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import './App.css';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Label, ReferenceLine, ResponsiveContainer } from 'recharts';
+import { Html5Entities } from 'html-entities';
 
+const htmlEntities = new Html5Entities();
 const crypto = require('crypto');
 const io = require("socket.io-client");
 const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] });
@@ -103,28 +105,28 @@ function App() {
       <div className="App-main">
         {tweet.idx < 0 ? null :
           <>
-            <span>{progress} out of {total} data points labelled</span>
-            <span>{(uncertainty * 100).toFixed(2)}% uncertain</span>
+            <span><b>{progress}</b> out of <b>{total}</b> data points labelled</span>
+            <span><b>{(uncertainty * 100).toFixed(2)}%</b> uncertainty</span>
           </>
         }
-        <div className="tweet">
-          <span>{tweet.text}</span>
-        </div>
         {!targets.length || tweet.idx < 0 ? null :
           <div className="buttons">
             {Object.values(targets).map((target) =>
-              <button key={target.val} onClick={() => label(tweet, target.val)}>{target.name}</button>
+              <button className="button" key={target.val} onClick={() => label(tweet, target.val)}>{target.name}</button>
             )}
           </div>
         }
+        <div className="tweet">
+          <span>{htmlEntities.decode(tweet.text)}</span>
+        </div>
         <div className="buttons">
-          <button onClick={() => skip(tweet)} disabled={tweet.idx < 0}>Skip</button>
-          <button onClick={() => save(scoreSeries)} disabled={!scoreSeries.length}>Save</button>
-          <button onClick={() => checkpoint()} disabled={tweet.idx < 0}>⚑</button>
-          <button onClick={() => refresh()}>↻</button>
+          <button className="button" onClick={() => skip(tweet)} disabled={tweet.idx < 0}>Skip</button>
+          <button className="button" onClick={() => save(scoreSeries)} disabled={!scoreSeries.length}>Save</button>
+          <button className="button" onClick={() => checkpoint()} disabled={tweet.idx < 0}>⚑</button>
+          <button className="button" onClick={() => refresh()}>↻</button>
         </div>
         <div className="stats">
-          <ResponsiveContainer width="50%" height={500}>
+          <ResponsiveContainer width="50%" height={500} className="graph">
             <LineChart
               width={500}
               height={300}
@@ -162,7 +164,7 @@ function App() {
           {!scoreSeries.length ? null :
             <div>
               <p>
-                Current classification performance: {score.toFixed(2)}%
+                Current classification performance: <b>{score.toFixed(2)}%</b>
               </p>
               <table>
                 <thead>

@@ -45,7 +45,14 @@ textual_features = [('tweet', 'tweet')]
 user_features = [('polarity', 'numeric')]
 options = {
     'classifier': [LogisticRegression(class_weight='balanced', penalty='l2', max_iter=500, solver='liblinear')],
-    'dataset': [{'name': 't_davidson', 'df': t_davidson}],
+    'dataset': [
+        {'name': 't_davidson',
+         'df': t_davidson,
+         'targets': [
+             {'val': 0,'name': 'hate speech'},
+             {'val': 1,'name': 'offensive language'},
+             {'val': 2,'name': 'neither'}]
+        }],
     'vectorizer': [tfidf],
     'features': [{'name': 'text', 'cols': textual_features}, {'name': 'text+user', 'cols': textual_features + user_features}],
     'query_strategy': [uncertainty_sampling, entropy_sampling, margin_sampling],
@@ -62,7 +69,6 @@ for v in options.get('vectorizer'):
             learned_v = Learning.learn_text_model(deepcopy(v), d['df'])
             transformers.append((learned_v,d))
 
-targets = [{'val': 0,'name': 'non-malicious'}, {'val': 1,'name': 'malicious'}]
 eval_scores = []
 seen = []
 
@@ -74,6 +80,7 @@ for p in permutations:
     estimator = clone(p.get('classifier'))
     features = p.get('features')
     strategy = p.get('query_strategy')
+    targets = dataset['targets']
 
     ml_name = f"{dataset['name']}-{estimator.__class__.__name__}-{transformer.__class__.__name__}-{features['name']}-ML"
     if ml_name not in seen:
