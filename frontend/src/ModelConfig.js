@@ -1,69 +1,43 @@
 import { useState, useEffect } from 'react';
 import { socket } from './App';
 
-import { FormControl, MenuItem, InputLabel, Select, FormGroup, FormControlLabel, Checkbox, FormHelperText } from '@material-ui/core';
-import { ThemeProvider, responsiveFontSizes, makeStyles, unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-ui/core/styles';
+import { FormControl, MenuItem, InputLabel, Select, FormGroup, FormControlLabel, Checkbox, FormHelperText, Slider, Typography } from '@material-ui/core';
+import { ThemeProvider, makeStyles } from '@material-ui/core/styles';
 import Loader from "react-loader-spinner";
 
-const withTimeout = (onSuccess, onTimeout, timeout) => {
-  let called = false;
 
-  const timer = setTimeout(() => {
-    if (called) return;
-    called = true;
-    onTimeout();
-  }, timeout);
-
-  return (...args) => {
-    if (called) return;
-    called = true;
-    clearTimeout(timer);
-    onSuccess.apply(this, args);
-  }
-}
-
-const darkTheme = responsiveFontSizes(createMuiTheme({
-  palette: {
-    type: 'dark',
-    primary: { main: '#8884d8' },
-    secondary: { main: '#82ca9d' },
-    background: { paper: "#2c3039" },
-    action: { selected: "#6c69ac" }
-  },
-}));
-
-const useStyles = makeStyles((theme) => ({
-  select: {
-    minWidth: 400,
-    fontWeight: 400,
-    borderStyle: 'none',
-    borderWidth: 2,
-    borderRadius: 12,
-    boxShadow: '0px 5px 8px -3px rgba(0,0,0,0.14)',
-    "&:focus": {
+function ModelConfig({ options, loading, setLoading, theme }) {
+  const useStyles = makeStyles((theme) => ({
+    select: {
+      minWidth: 400,
+      maxWidth: 400,
+      fontWeight: 400,
+      borderStyle: 'none',
+      borderWidth: 2,
       borderRadius: 12,
-      background: '#282C34'
+      boxShadow: '0px 5px 8px -3px rgba(0,0,0,0.14)',
+      "&:focus": {
+        borderRadius: 12,
+        background: '#282C34'
+      }
+    },
+    paper: {
+      borderRadius: 12,
+      marginTop: 8
+    },
+    list: {
+      paddingTop: 0,
+      paddingBottom: 0,
+      "& li": {
+        fontWeight: 300,
+        paddingTop: 12,
+        paddingBottom: 12,
+      },
+      "& li:hover": {
+        background: "#8884d8"
+      },
     }
-  },
-  paper: {
-    borderRadius: 12,
-    marginTop: 8
-  },
-  list: {
-    paddingTop: 0,
-    paddingBottom: 0,
-    "& li": {
-      fontWeight: 300,
-      paddingTop: 12,
-      paddingBottom: 12,
-    },
-    "& li:hover": {
-      background: "#8884d8"
-    },
-  }
-}));
-
-function ModelConfig({ options }) {
+  }));
   const classes = useStyles();
 
   useEffect(() => {
@@ -72,6 +46,7 @@ function ModelConfig({ options }) {
       setDataset("")
       setVectorizer("")
       setQueryStrategy("")
+      setTarget(50)
     })
   }, [])
 
@@ -80,8 +55,8 @@ function ModelConfig({ options }) {
   const [vectorizer, setVectorizer] = useState("")
   const [queryStrategy, setQueryStrategy] = useState("")
   const [features, setFeatures] = useState({ text: false, user: false, stats: false })
+  const [target, setTarget] = useState(50)
   const [error, setError] = useState({ classifier: false, dataset: false, vectorizer: false, queryStrategy: false, features: false })
-  const [loading, setLoading] = useState(false)
 
   const menuProps = {
     classes: {
@@ -100,7 +75,7 @@ function ModelConfig({ options }) {
   };
 
   return (
-    <ThemeProvider theme={darkTheme}>
+    <ThemeProvider theme={theme}>
       <Loader type="TailSpin" color="#8884d8" height={80} width={80} visible={loading} />
       <FormControl variant="outlined" error={error.classifier}>
         <InputLabel id="classifier">Classifier</InputLabel>
@@ -184,6 +159,13 @@ function ModelConfig({ options }) {
           />
         </FormGroup>
         <FormHelperText style={{ marginLeft: 'auto' }}>select at least 1 category</FormHelperText>
+        <Typography gutterBottom>Target Score</Typography>
+        <Slider
+          defaultValue={50}
+          onChangeCommitted={(e, v) => setTarget(v)}
+          valueLabelFormat={(v) => `${v}%`}
+          valueLabelDisplay="auto"
+          aria-labelledby="continuous-slider" />
       </FormControl>
       <button className="button"
         disabled={loading}
@@ -204,10 +186,11 @@ function ModelConfig({ options }) {
               dataset: dataset,
               vectorizer: vectorizer,
               query_strategy: queryStrategy,
-              features: features
-            }, withTimeout((success) => {
+              features: features,
+              target: target
+            }, (success) => {
               setLoading(!success)
-            }, () => { setLoading(false) }, 30000))
+            })
           }
         }}
       >Begin Learning</button>

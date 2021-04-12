@@ -1,16 +1,13 @@
 import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Label, ReferenceLine, ResponsiveContainer } from 'recharts';
-import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from '@material-ui/core/'
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button, ThemeProvider } from '@material-ui/core/';
+import Loader from "react-loader-spinner";
 import { Html5Entities } from 'html-entities';
 import { socket } from './App';
 
 const htmlEntities = new Html5Entities();
 const crypto = require('crypto');
 
-function label(tweet, label) {
-  console.log(`"${tweet.text}" --> ${label}`);
-  socket.emit("label", { 'idx': tweet.idx, 'label': label, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
-}
 
 function skip(tweet) {
   console.log(`"${tweet.text}" --> skipped`);
@@ -38,7 +35,18 @@ function checkpoint() {
   })
 }
 
-function Model({ model, setModel }) {
+function Model({ model, setModel, loading, setLoading, theme }) {
+
+  function label(tweet, label) {
+    console.log(`"${tweet.text}" --> ${label}`);
+    let sent = true
+    setTimeout(() => { if (sent) setLoading(true) }, 200);
+    socket.emit("label", { 'idx': tweet.idx, 'label': label, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') },
+      (done) => {
+        sent = !done
+        setLoading(!done)
+      });
+  }
 
   const [resetDialog, setResetDialog] = useState(false);
 
@@ -80,7 +88,7 @@ function Model({ model, setModel }) {
   }, [setModel]);
 
   return (
-    <>
+    <ThemeProvider theme={theme}>
       {model.tweet.idx < 0 ? null :
         <>
           <span><b>{model.progress}</b> out of <b>{model.total}</b> data points labelled</span>
@@ -90,12 +98,13 @@ function Model({ model, setModel }) {
       {!model.targets.length || model.tweet.idx < 0 ? null :
         <div className="buttons">
           {Object.values(model.targets).map((target) =>
-            <button className="button" key={target.val} onClick={() => label(model.tweet, target.val)}>{target.name}</button>
+            <button style={{ minHeight: 40 }} className="button" key={target.val} onClick={() => label(model.tweet, target.val)}>{target.name}</button>
           )}
         </div>
       }
       <div className="tweet">
         <span>{htmlEntities.decode(model.tweet.text)}</span>
+        <Loader type="TailSpin" color="#8884d8" height={25} width={25} visible={loading} />
       </div>
       <div className="buttons">
         <button className="button" onClick={() => skip(model.tweet)} disabled={model.tweet.idx < 0}>Skip</button>
@@ -207,7 +216,7 @@ function Model({ model, setModel }) {
           </Button>
         </DialogActions>
       </Dialog>
-    </>
+    </ThemeProvider>
   );
 }
 

@@ -5,6 +5,7 @@ from flask_socketio import SocketIO
 from active_learning import ActiveLearning
 import logging
 import sys
+from copy import deepcopy
 
 
 class Server():
@@ -34,15 +35,16 @@ class Server():
         vectorizer = next(filter(lambda v: v['name'] == options['vectorizer'], self.options['vectorizers']), {}).get('vectorizer')
         query_strategy = next(filter(lambda q: q['name'] == options['query_strategy'], self.options['query_strategies']), {}).get('strategy')
         features = sum(filter(None, [next(filter(lambda f: f['name'] == key, self.options['features']), {}).get('cols') if val else [] for key, val in options['features'].items()]), [])
-        if not features: return
+        if (not features) or (classifier is None) or (dataset is None) or (vectorizer is None) or (query_strategy is None): return
         self.learning = ActiveLearning(estimator=classifier,
                                  dataset=dataset.get('df'),
                                  columns=features,
-                                 vectorizer=vectorizer,
+                                 vectorizer=deepcopy(vectorizer),
+                                 learn_vectorizer=True,
                                  query_strategy=query_strategy,
                                  targets=dataset.get('targets'),
-                                 target_score=56,
-                                 name='name placeholder')
+                                 target_score=options.get('target'),
+                                 name=f"{dataset.get('name')}-{classifier.__class__.__name__}-{vectorizer.__class__.__name__}-{query_strategy.__name__}-AL")
         self.learning.start(server=False)
 
 
@@ -132,10 +134,11 @@ class Server():
 
         @self.sio.on('label')
         def label(tweet):
-            if self.learning is None: return
+            if self.learning is None: return True
             success = self.learning.teach(tweet, hashed=True)
             if success:
                 self.query(self.learning)
+            return True
 
         @self.sio.on('skip')
         def skip(tweet):
