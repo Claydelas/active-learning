@@ -1,4 +1,4 @@
-import logging, sys, json, os
+import json, os
 from typing import Callable, Collection, Dict, Tuple, Union
 
 from sklearn.base import BaseEstimator
@@ -32,10 +32,6 @@ class Learning():
                  start: bool = False,
                  name: str = 'dataset',
                  targets = None):
-
-        logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
-                    datefmt='%m/%d/%Y %I:%M:%S %p')
-        logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
 
         self.estimator = estimator
 

@@ -21,6 +21,19 @@ function App() {
         initialised: false
     })
 
+    const [options, setOptions] = useState({
+        classifiers: [],
+        datasets: [],
+        vectorizers: [],
+        query_strategies: []
+    });
+
+    useEffect(() => {
+        socket.on("options", data => {
+            setOptions(data)
+        });
+    }, []);
+
     useEffect(() => {
         socket.on("init", data => {
             setModel(m => {
@@ -46,13 +59,19 @@ function App() {
             setModel(m => {
                 return { ...m, initialised: false }
             })
+            setOptions({
+                classifiers: [],
+                datasets: [],
+                vectorizers: [],
+                query_strategies: []
+            })
         })
     }, [])
 
     return (
         <div className="App">
             <div className="App-main">
-                {model.initialised ? <Model setModel={setModel} model={model} /> : <ModelConfig />}
+                {model.initialised ? <Model setModel={setModel} model={model} /> : <ModelConfig options={options} />}
             </div>
         </div>
     )

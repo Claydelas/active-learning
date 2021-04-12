@@ -4,6 +4,7 @@ import modAL.uncertainty
 from flask_socketio import SocketIO
 from active_learning import ActiveLearning
 import logging
+import sys
 
 
 class Server():
@@ -13,9 +14,10 @@ class Server():
         if logger is None:
             logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                                 datefmt='%m/%d/%Y %I:%M:%S %p')
-            self.logging = logging.getLogger()
+            logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+            self.logger = logging.getLogger()
         else:
-            self.logging = logger
+            self.logger = logger
         self.app = Flask('Active Learning')
         self.sio = SocketIO(self.app, cors_allowed_origins='*')
         self.bootstrap()
@@ -32,7 +34,7 @@ class Server():
         vectorizer = next(filter(lambda v: v['name'] == options['vectorizer'], self.options['vectorizers']), {}).get('vectorizer')
         query_strategy = next(filter(lambda q: q['name'] == options['query_strategy'], self.options['query_strategies']), {}).get('strategy')
         features = sum(filter(None, [next(filter(lambda f: f['name'] == key, self.options['features']), {}).get('cols') if val else [] for key, val in options['features'].items()]), [])
-
+        if not features: return
         self.learning = ActiveLearning(estimator=classifier,
                                  dataset=dataset.get('df'),
                                  columns=features,
@@ -109,16 +111,16 @@ class Server():
 
         @self.sio.on('connect')
         def connect():
-            self.logging.info(f'Client connected: {request.sid}')
+            self.logger.info(f'Client connected: {request.sid}')
             self.init(self.learning)
 
         @self.sio.on('disconnect')
         def disconnect():
-            self.logging.info(f'Client disconnected: {request.sid}')
+            self.logger.info(f'Client disconnected: {request.sid}')
 
         @self.sio.on('refresh')
         def refresh():
-            self.logging.info(f'{request.sid} requested refresh.')
+            self.logger.info(f'{request.sid} requested refresh.')
             self.init(self.learning)
         
         @self.sio.on('options')
@@ -148,3 +150,10 @@ class Server():
             path = f"data/{self.learning.name}_cp.pkl"
             self.learning.save(path)
             return f"Dataset saved @{path}"
+
+        @self.sio.on('reset')
+        def reset():
+            del self.learning
+            self.learning = None
+            self.init(None)
+            return True

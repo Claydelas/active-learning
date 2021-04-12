@@ -1,5 +1,6 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Label, ReferenceLine, ResponsiveContainer } from 'recharts';
+import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, Button } from '@material-ui/core/'
 import { Html5Entities } from 'html-entities';
 import { socket } from './App';
 
@@ -38,6 +39,8 @@ function checkpoint() {
 }
 
 function Model({ model, setModel }) {
+
+  const [resetDialog, setResetDialog] = useState(false);
 
   // on component mount listen for queries
   useEffect(() => {
@@ -99,6 +102,7 @@ function Model({ model, setModel }) {
         <button className="button" onClick={() => save(model.scoreSeries)} disabled={!model.scoreSeries.length}>Save</button>
         <button className="button" onClick={() => checkpoint()} disabled={model.tweet.idx < 0}>⚑</button>
         <button className="button" onClick={() => refresh()}>↻</button>
+        <button className="button" onClick={() => setResetDialog(true)}>Reset</button>
       </div>
       {!model.scoreSeries.length ? null :
         <div className="stats">
@@ -177,6 +181,32 @@ function Model({ model, setModel }) {
           </div>
         </div>
       }
+      <Dialog
+        open={resetDialog}
+        onClose={() => setResetDialog(false)}
+        aria-labelledby="alert-dialog-title"
+        aria-describedby="alert-dialog-description"
+      >
+        <DialogTitle id="alert-dialog-title">{"Are you sure?"}</DialogTitle>
+        <DialogContent>
+          <DialogContentText id="alert-dialog-description">
+            This will reset the current active learning process and model.<br />
+            All labels and statistics will be lost in the process unless previously saved.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            socket.emit('reset', (reset) => setModel(m => {
+              return { ...m, initialised: (!reset) }
+            }));
+          }} color="primary">
+            Proceed
+          </Button>
+          <Button onClick={() => setResetDialog(false)} color="primary" autoFocus>
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </>
   );
 }

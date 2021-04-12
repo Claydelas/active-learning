@@ -1,4 +1,3 @@
-import logging
 import hashlib
 
 from typing import Callable, Collection, Dict, Tuple, Union
@@ -156,7 +155,7 @@ class ActiveLearning(Learning):
     # starts an instance of the backend server used by the labeling web-app
     def start_server(self):
         from sio_server import Server
-        server = Server(self, logging.getLogger())
+        server = Server(self)
         server.run()
 
 

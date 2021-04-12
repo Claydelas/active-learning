@@ -2,8 +2,7 @@ import { useState, useEffect } from 'react';
 import { socket } from './App';
 
 import { FormControl, MenuItem, InputLabel, Select, FormGroup, FormControlLabel, Checkbox, FormHelperText } from '@material-ui/core';
-import { ThemeProvider, responsiveFontSizes, makeStyles } from '@material-ui/core/styles';
-import { unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-ui/core';
+import { ThemeProvider, responsiveFontSizes, makeStyles, unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-ui/core/styles';
 import Loader from "react-loader-spinner";
 
 const withTimeout = (onSuccess, onTimeout, timeout) => {
@@ -64,20 +63,8 @@ const useStyles = makeStyles((theme) => ({
   }
 }));
 
-function ModelConfig() {
+function ModelConfig({ options }) {
   const classes = useStyles();
-  const [options, setOptions] = useState({
-    classifiers: [],
-    datasets: [],
-    vectorizers: [],
-    query_strategies: []
-  });
-
-  useEffect(() => {
-    socket.on("options", data => {
-      setOptions(data)
-    });
-  }, []);
 
   useEffect(() => {
     socket.on("disconnect", () => {
