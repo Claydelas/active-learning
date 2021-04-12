@@ -181,7 +181,14 @@ function ModelConfig() {
           if ([errors.classifier, errors.dataset, errors.vectorizer, errors.queryStrategy, errors.features].filter((v) => v).length > 0) {
             setError(errors)
           } else {
-            console.log("start model")
+            socket.emit("options", {
+              classifier: classifier,
+              dataset: dataset,
+              vectorizer: vectorizer,
+              query_strategy: queryStrategy,
+              features: features
+            })
+            console.log("starting model")
           }
         }}
       >Begin Learning</button>

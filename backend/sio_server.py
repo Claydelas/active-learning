@@ -2,12 +2,22 @@ from logging import Logger
 from flask import Flask, request
 import modAL.uncertainty
 from flask_socketio import SocketIO
+from active_learning import ActiveLearning
+import logging
+import sys
 
 
 class Server():
-    def __init__(self, learning, logging: Logger):
+    def __init__(self, learning: ActiveLearning = None, options = {}, logger: Logger = None):
         self.learning = learning
-        self.logging = logging
+        self.options = options
+        if logger is None:
+            logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
+                                datefmt='%m/%d/%Y %I:%M:%S %p')
+            logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
+            self.logging = logging.getLogger()
+        else:
+            self.logging = logger
         self.app = Flask('Active Learning')
         self.sio = SocketIO(self.app, cors_allowed_origins='*')
         self.bootstrap()
@@ -17,9 +27,36 @@ class Server():
         # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
         self.sio.run(self.app)
 
+
+    def parse_options(self, options):
+        classifier = next(filter(lambda c: c['name'] == options['classifier'], self.options['classifiers']), {}).get('classifier')
+        dataset = next(filter(lambda d: d['name'] == options['dataset'], self.options['datasets']), {})
+        vectorizer = next(filter(lambda v: v['name'] == options['vectorizer'], self.options['vectorizers']), {}).get('vectorizer')
+        query_strategy = next(filter(lambda q: q['name'] == options['query_strategy'], self.options['query_strategies']), {}).get('strategy')
+        features = sum(filter(None, [next(filter(lambda f: f['name'] == key, self.options['features']), {}).get('cols') if val else [] for key, val in options['features'].items()]), [])
+
+        self.learning = ActiveLearning(estimator=classifier,
+                                 dataset=dataset.get('df'),
+                                 columns=features,
+                                 vectorizer=vectorizer,
+                                 query_strategy=query_strategy,
+                                 targets=dataset.get('targets'),
+                                 target_score=56,
+                                 name='name placeholder')
+        self.learning.start(server=False)
+
+
     def init(self, learning):
+        if learning is None:
+            self.sio.emit('options', {
+                'classifiers': [c['name'] for c in self.options['classifiers']],
+                'datasets': [d['name'] for d in self.options['datasets']],
+                'vectorizers': [v['name'] for v in self.options['vectorizers']],
+                'query_strategies': [q['name'] for q in self.options['query_strategies']],
+                'features': [f['name'] for f in self.options['features']]
+            })
         # retrieve most uncertain instance
-        if learning.X_pool.shape[0] > 0:
+        elif learning.X_pool.shape[0] > 0:
             query_idx, query_sample = learning.learner.query(learning.X_pool)
             idx = int(query_idx)
             self.sio.emit('init', {
@@ -85,21 +122,29 @@ class Server():
         def refresh():
             self.logging.info(f'{request.sid} requested refresh.')
             self.init(self.learning)
+        
+        @self.sio.on('options')
+        def build_model(options):
+            self.parse_options(options)
+            self.init(self.learning)
 
         @self.sio.on('label')
         def label(tweet):
+            if self.learning is None: return
             success = self.learning.teach(tweet, hashed=True)
             if success:
                 self.query(self.learning)
 
         @self.sio.on('skip')
         def skip(tweet):
+            if self.learning is None: return
             success = self.learning.skip(tweet, hashed=True)
             if success:
                 self.query(self.learning)
 
         @self.sio.on('checkpoint')
         def checkpoint():
+            if self.learning is None: return
             path = f"data/{self.learning.name}_cp.pkl"
             self.learning.save(path)
             return f"Dataset saved @{path}"

@@ -44,8 +44,9 @@ tfidf = TfidfVectorizer(
 textual_features = [('tweet', 'tweet')]
 user_features = [('polarity', 'numeric')]
 options = {
-    'classifier': [LogisticRegression(class_weight='balanced', penalty='l2', max_iter=500, solver='liblinear')],
-    'dataset': [
+    'classifiers': [
+        {'name': 'Logistic Regression', 'classifier': LogisticRegression(class_weight='balanced', penalty='l2', max_iter=500, solver='liblinear')}],
+    'datasets': [
         {'name': 't_davidson',
          'df': t_davidson,
          'targets': [
@@ -53,20 +54,26 @@ options = {
              {'val': 1,'name': 'offensive language'},
              {'val': 2,'name': 'neither'}]
         }],
-    'vectorizer': [tfidf],
-    'features': [{'name': 'text', 'cols': textual_features}, {'name': 'text+user', 'cols': textual_features + user_features}],
-    'query_strategy': [uncertainty_sampling, entropy_sampling, margin_sampling],
+    'vectorizers': [
+        {'name': 'TF IDF Vectorizer', 'vectorizer': tfidf}],
+    'features': [
+        {'name': 'text', 'cols': textual_features},
+        {'name': 'text+user', 'cols': textual_features + user_features}],
+    'query_strategies': [
+        {'name': 'Uncertainty Sampling', 'strategy': uncertainty_sampling},
+        {'name': 'Entropy Sampling', 'strategy': entropy_sampling},
+        {'name': 'Margin Sampling', 'strategy': margin_sampling}],
     }
 permutations = list(ParameterGrid(options))
 
 transformers = []
 
-for v in options.get('vectorizer'):
-    for d in options.get('dataset'):
-        if isinstance(v, KeyedVectors):
-            transformers.append((v,d))
+for v in options.get('vectorizers'):
+    for d in options.get('datasets'):
+        if isinstance(v['vectorizer'], KeyedVectors):
+            transformers.append((v['vectorizer'],d))
         else:
-            learned_v = Learning.learn_text_model(deepcopy(v), d['df'])
+            learned_v = Learning.learn_text_model(deepcopy(v['vectorizer']), d['df'])
             transformers.append((learned_v,d))
 
 eval_scores = []
@@ -74,15 +81,15 @@ seen = []
 
 for p in permutations:
 
-    pred = lambda x_y:(x:=x_y[0], y:=x_y[1], type(p.get('vectorizer') == type(x) and p.get('dataset')['df'].equals(y)))
+    pred = lambda x_y:(x:=x_y[0], y:=x_y[1], type(p['vectorizers']['vectorizer'] == type(x) and p['datasets'].equals(y)))
 
-    transformer, dataset = next(filter(pred, transformers), (p.get('vectorizer'), p.get('dataset')))
-    estimator = clone(p.get('classifier'))
+    transformer, dataset = next(filter(pred, transformers), (p['vectorizers']['vectorizer'], p['datasets']))
+    estimator = clone(p['classifiers']['classifier'])
     features = p.get('features')
-    strategy = p.get('query_strategy')
+    strategy = p.get('query_strategies')
     targets = dataset['targets']
 
-    ml_name = f"{dataset['name']}-{estimator.__class__.__name__}-{transformer.__class__.__name__}-{features['name']}-ML"
+    ml_name = f"{dataset['name']}-{p['classifiers']['name']}-{p['vectorizers']['name']}-{features['name']}-ML"
     if ml_name not in seen:
         ml = Learning(estimator=estimator,
                       dataset=dataset['df'],
@@ -97,13 +104,13 @@ for p in permutations:
         seen.append(ml_name)
         del ml
 
-    al_name = f"{dataset['name']}-{estimator.__class__.__name__}-{transformer.__class__.__name__}-{features['name']}-{strategy.__name__}-AL"
+    al_name = f"{dataset['name']}-{p['classifiers']['name']}-{p['vectorizers']['name']}-{features['name']}-{strategy['name']}-AL"
     al = ActiveLearning(estimator=estimator,
                   dataset=dataset['df'],
                   columns=features['cols'],
                   vectorizer=transformer,
-                  query_strategy=strategy,
-                  n_queries=100,
+                  query_strategy=strategy['strategy'],
+                  n_queries=1000,
                   name=al_name,
                   targets=targets
                   )

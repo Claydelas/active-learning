@@ -41,6 +41,14 @@ function App() {
         });
     }, []);
 
+    useEffect(() => {
+        socket.on("disconnect", () => {
+            setModel(m => {
+                return { ...m, initialised: false }
+            })
+        })
+    }, [])
+
     return (
         <div className="App">
             <div className="App-main">
