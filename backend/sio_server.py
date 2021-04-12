@@ -55,7 +55,7 @@ class Server():
                 'uncertainty': modAL.uncertainty.classifier_uncertainty(classifier=learning.estimator, X=query_sample)[0],
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
-                'series': learning.accuracy_scores[-1] if learning.accuracy_scores else {},
+                'series': learning.accuracy_scores,
                 'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
                 'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
             })

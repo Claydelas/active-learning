@@ -86,6 +86,7 @@ class Learning():
         if self.learn_vectorizer: self.learn_text_model(vectorizer=self.vectorizer, dataset=self.dataset)
         self.split()
         self.fit(X=self.X_train, y=self.y_train)
+        self.accuracy_scores.append(dict(self.classification_report(self.X_test, self.y_test, self.target_names), labels=self.labeled_size))
         return self
 
 

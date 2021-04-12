@@ -89,6 +89,7 @@ class ActiveLearning(Learning):
             #raise Exception("Not enough labeled samples to fit classifier and generate test set")
         
     def auto_teach(self, queries = None):
+        if queries and queries > self.X_pool.shape[0]: queries = self.X_pool.shape[0]
         for _ in range(0, queries) if queries else range(0, self.X_pool.shape[0]):
             # retrieve most uncertain instance
             idx, sample = self.learner.query(self.X_pool)

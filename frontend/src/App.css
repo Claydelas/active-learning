@@ -1,9 +1,9 @@
 .button {
   display:inline-block;
   padding:0.35em 1.2em;
-  border:0.1em solid #FFFFFF;
+  border:1px solid #FFFFFF;
   margin:0 0.3em 0.3em 0;
-  border-radius:0.12em;
+  border-radius:0.14em;
   box-sizing: border-box;
   color:#FFFFFF;
   background:none;
@@ -11,7 +11,7 @@
   transition: all 0.2s;
   text-transform: capitalize;
   font-weight: bold;
-  font-size: calc(2px + 2vmin);
+  font-size: calc(2px + 1.5vmin);
 }
 
 .button:hover:enabled {
