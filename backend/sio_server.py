@@ -4,7 +4,6 @@ import modAL.uncertainty
 from flask_socketio import SocketIO
 from active_learning import ActiveLearning
 import logging
-import sys
 
 
 class Server():
@@ -14,7 +13,6 @@ class Server():
         if logger is None:
             logging.basicConfig(handlers=[logging.FileHandler('server.log', 'a', 'utf-8')], level=logging.DEBUG, format='[%(asctime)s] %(message)s',
                                 datefmt='%m/%d/%Y %I:%M:%S %p')
-            logging.getLogger().addHandler(logging.StreamHandler(sys.stdout))
             self.logging = logging.getLogger()
         else:
             self.logging = logger
@@ -125,8 +123,10 @@ class Server():
         
         @self.sio.on('options')
         def build_model(options):
-            self.parse_options(options)
-            self.init(self.learning)
+            if self.learning is None:
+                self.parse_options(options)
+                self.init(self.learning)
+            return True
 
         @self.sio.on('label')
         def label(tweet):

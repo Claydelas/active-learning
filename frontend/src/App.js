@@ -4,7 +4,7 @@ import ModelConfig from './ModelConfig';
 import { useState, useEffect } from 'react';
 
 const io = require("socket.io-client");
-const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] });
+export const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] });
 
 function App() {
 
@@ -59,4 +59,3 @@ function App() {
 }
 
 export default App;
-export { socket };

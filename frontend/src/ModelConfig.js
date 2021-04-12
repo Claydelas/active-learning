@@ -4,6 +4,24 @@ import { socket } from './App';
 import { FormControl, MenuItem, InputLabel, Select, FormGroup, FormControlLabel, Checkbox, FormHelperText } from '@material-ui/core';
 import { ThemeProvider, responsiveFontSizes, makeStyles } from '@material-ui/core/styles';
 import { unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-ui/core';
+import Loader from "react-loader-spinner";
+
+const withTimeout = (onSuccess, onTimeout, timeout) => {
+  let called = false;
+
+  const timer = setTimeout(() => {
+    if (called) return;
+    called = true;
+    onTimeout();
+  }, timeout);
+
+  return (...args) => {
+    if (called) return;
+    called = true;
+    clearTimeout(timer);
+    onSuccess.apply(this, args);
+  }
+}
 
 const darkTheme = responsiveFontSizes(createMuiTheme({
   palette: {
@@ -61,12 +79,22 @@ function ModelConfig() {
     });
   }, []);
 
+  useEffect(() => {
+    socket.on("disconnect", () => {
+      setClassifier("")
+      setDataset("")
+      setVectorizer("")
+      setQueryStrategy("")
+    })
+  }, [])
+
   const [classifier, setClassifier] = useState("")
   const [dataset, setDataset] = useState("")
   const [vectorizer, setVectorizer] = useState("")
   const [queryStrategy, setQueryStrategy] = useState("")
   const [features, setFeatures] = useState({ text: false, user: false, stats: false })
   const [error, setError] = useState({ classifier: false, dataset: false, vectorizer: false, queryStrategy: false, features: false })
+  const [loading, setLoading] = useState(false)
 
   const menuProps = {
     classes: {
@@ -86,6 +114,7 @@ function ModelConfig() {
 
   return (
     <ThemeProvider theme={darkTheme}>
+      <Loader type="TailSpin" color="#8884d8" height={80} width={80} visible={loading} />
       <FormControl variant="outlined" error={error.classifier}>
         <InputLabel id="classifier">Classifier</InputLabel>
         <Select
@@ -170,6 +199,7 @@ function ModelConfig() {
         <FormHelperText style={{ marginLeft: 'auto' }}>select at least 1 category</FormHelperText>
       </FormControl>
       <button className="button"
+        disabled={loading}
         onClick={() => {
           let errors = {
             classifier: !options.classifiers.includes(classifier),
@@ -181,14 +211,16 @@ function ModelConfig() {
           if ([errors.classifier, errors.dataset, errors.vectorizer, errors.queryStrategy, errors.features].filter((v) => v).length > 0) {
             setError(errors)
           } else {
+            setLoading(true)
             socket.emit("options", {
               classifier: classifier,
               dataset: dataset,
               vectorizer: vectorizer,
               query_strategy: queryStrategy,
               features: features
-            })
-            console.log("starting model")
+            }, withTimeout((success) => {
+              setLoading(!success)
+            }, () => { setLoading(false) }, 30000))
           }
         }}
       >Begin Learning</button>
