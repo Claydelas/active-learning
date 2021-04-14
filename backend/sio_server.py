@@ -70,8 +70,7 @@ class Server():
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
-                'target': learning.target_score,
-                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
+                'target': learning.target_score
             })
         else:
             self.sio.emit('end', {
@@ -79,8 +78,7 @@ class Server():
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
-                'target': learning.target_score,
-                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
+                'target': learning.target_score
             })
 
     def query(self, learning):
@@ -95,15 +93,13 @@ class Server():
                 'labeled_size': learning.labeled_size,
                 'dataset_size': learning.dataset_size,
                 'series': learning.accuracy_scores,
-                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
-                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
+                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0
             })
         else:
             self.sio.emit('end', {
                 'labeled_size': learning.labeled_size,
                 'series': learning.accuracy_scores,
-                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0,
-                'report': learning.accuracy_scores[-1] if learning.accuracy_scores else {}
+                'score': learning.accuracy_scores[-1]['macro avg']['f1-score'] if learning.accuracy_scores else 0
             })
 
     def bootstrap(self):

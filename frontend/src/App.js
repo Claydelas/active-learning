@@ -19,7 +19,6 @@ function App() {
         progress: 0,
         total: 0,
         score: 0.00,
-        report: {},
         targetScore: 80.00,
         scoreSeries: [],
         initialised: false
@@ -51,7 +50,6 @@ function App() {
                     total: data.dataset_size,
                     score: data.score * 100,
                     targetScore: data.target,
-                    report: JSON.stringify(data.report) !== '{}' ? data.report : m.report,
                     initialised: true
                 }
             })

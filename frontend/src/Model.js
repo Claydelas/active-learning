@@ -4,6 +4,7 @@ import { Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, B
 import Loader from "react-loader-spinner";
 import { Html5Entities } from 'html-entities';
 import { socket } from './App';
+import ReportTable from './ReportTable'
 
 const htmlEntities = new Html5Entities();
 const crypto = require('crypto');
@@ -61,8 +62,7 @@ function Model({ model, setModel, loading, setLoading, theme }) {
           scoreSeries: JSON.stringify(data.series) !== '{}' ? data.series : m.scoreSeries,
           progress: data.labeled_size,
           total: data.dataset_size,
-          score: data.score * 100,
-          report: JSON.stringify(data.report) !== '{}' ? data.report : m.report
+          score: data.score * 100
         }
       })
     });
@@ -80,8 +80,7 @@ function Model({ model, setModel, loading, setLoading, theme }) {
           progress: data.labeled_size,
           total: data.dataset_size ? data.dataset_size : m.total,
           score: data.score * 100,
-          targetScore: data.target ? data.target : m.targetScore,
-          report: JSON.stringify(data.report) !== '{}' ? data.report : m.report
+          targetScore: data.target ? data.target : m.targetScore
         }
       })
     });
@@ -154,39 +153,8 @@ function Model({ model, setModel, loading, setLoading, theme }) {
             <p>
               Current classification performance: <b>{model.score.toFixed(2)}%</b>
             </p>
-            <table>
-              <thead>
-                <tr>
-                  <th></th>
-                  <th>precision</th>
-                  <th>recall</th>
-                  <th>f1-score</th>
-                  <th>support</th>
-                </tr>
-              </thead>
-              <tbody>
-                {Object.entries(model.report).map((key) =>
-                  <tr key={key[0]}>
-                    {(() => {
-                      let i = 0;
-                      switch (key[0]) {
-                        case "accuracy": return (
-                          [<td key={0}>{key[0]}</td>,
-                          <td key={1}></td>,
-                          <td key={2}></td>,
-                          <td key={3}>{key[1].toFixed(2)}</td>,
-                          <td key={4}></td>]);
-                        case "labels": return null
-                        default: return (
-                          [<td key={key[0]}>{key[0]}</td>,
-                          Object.entries(key[1]).map((val) => (
-                            <td key={i++}>{val[0] === "support" ? val[1] : val[1].toFixed(2)}</td>
-                          ))]);
-                      }
-                    })()}
-                  </tr>)}
-              </tbody>
-            </table>
+            {!model.scoreSeries.length ? null :
+              <ReportTable scores={model.scoreSeries} />}
           </div>
         </div>
       }

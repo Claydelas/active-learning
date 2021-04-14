@@ -90,23 +90,24 @@ class Learning():
     def process(self,) -> DataFrame:
         clean_columns: Collection[Tuple[str, str]] = []
         for col, type in self.columns:
-            if (type == 'tweet'):
-                # extract textual features
-                pre.feature_extract(self.dataset, col)
-                # clean train set
-                pre.process(self.dataset, col)
-                # remove duplicate tweets
-                self.dataset = self.dataset.drop_duplicates(subset=['tweet_clean'])
-                # rename the preprocessed column from name -> name_clean
-                clean_columns.append((f'{col}_clean',type))
-            elif (type == 'text'):
-                # clean train set
-                pre.process(self.dataset, col)
-                # rename the preprocessed column from name -> name_clean
-                clean_columns.append((f'{col}_clean',type))
-            else:
-                # keep the column name
-                clean_columns.append((col,type))
+            if col in self.dataset.columns:
+                if (type == 'tweet'):
+                    # extract textual features
+                    pre.feature_extract(self.dataset, col)
+                    # clean train set
+                    pre.process(self.dataset, col)
+                    # remove duplicate tweets
+                    self.dataset = self.dataset.drop_duplicates(subset=['tweet_clean'])
+                    # rename the preprocessed column from name -> name_clean
+                    clean_columns.append((f'{col}_clean',type))
+                elif (type == 'text'):
+                    # clean train set
+                    pre.process(self.dataset, col)
+                    # rename the preprocessed column from name -> name_clean
+                    clean_columns.append((f'{col}_clean',type))
+                else:
+                    # keep the column name
+                    clean_columns.append((col,type))
         self.columns = clean_columns
         self.save(f"data/processed/{self.name}_processed.pkl")
         return self.dataset
@@ -149,13 +150,14 @@ class Learning():
     def build_features(self, pool: DataFrame, columns: Collection[Tuple[str, str]]):
         blocks = []
         for column, type in columns:
-            if type == 'text' or type == 'tweet':
-                blocks.append(self._vectorize_(pool[column]))
-            elif type == 'numeric':
-                X = StandardScaler().fit_transform(pool[column].values.reshape(-1,1))
-                blocks.append(X)
-            elif type == 'bool':
-                blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
+            if column in pool.columns:
+                if type == 'text' or type == 'tweet':
+                    blocks.append(self._vectorize_(pool[column]))
+                elif type == 'numeric':
+                    X = StandardScaler().fit_transform(pool[column].values.reshape(-1,1))
+                    blocks.append(X)
+                elif type == 'bool':
+                    blocks.append(pool[column].apply(lambda val: 1 if val == True else 0).values.reshape(-1,1))
         return data_hstack(blocks)
 
 
