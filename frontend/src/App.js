@@ -67,7 +67,6 @@ function App() {
                 vectorizers: [],
                 query_strategies: []
             })
-            setLoading(false)
         })
     }, [])
 

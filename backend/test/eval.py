@@ -18,47 +18,66 @@ from modAL.uncertainty import uncertainty_sampling, margin_sampling, entropy_sam
 from sklearn.model_selection import ParameterGrid
 
 from sklearn.linear_model import LogisticRegression
-from sklearn.svm import LinearSVC
-from sklearn.naive_bayes import ComplementNB
+from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.ensemble import AdaBoostClassifier
+from sklearn.neighbors import KNeighborsClassifier
 #%% ----------------------------------------------------------------datasets
-t_davidson = pd.read_pickle("../../data/processed/t-davidson_processed.pkl")
+#t_davidson = pd.read_pickle("../../data/processed/t-davidson_processed.pkl")
 #t_davidson = pd.read_pickle("data/processed/t-davidson_processed.pkl")
+personal = pd.read_pickle("../../data/processed/personal_processed.pkl")
 #%% ----------------------------------------------------------------word embeddings
-#glove = api.load('glove-twitter-50')
+glove = api.load('glove-twitter-50')
 #%% ----------------------------------------------------------------doc2vec
 doc2vec = Doc2Vec(vector_size=50, min_count=2, epochs=20)
 #%% ----------------------------------------------------------------tfidf2
 tfidf = TfidfVectorizer(
     ngram_range=(1, 3),
-    use_idf=True,
-    smooth_idf=False,
-    norm=None,
     decode_error='replace',
     max_features=5000,
     min_df=5,
     max_df=0.75
     )
 # %%
-textual_features = [('tweet', 'tweet')]
-user_features = [('polarity', 'numeric')]
+text_features = [('tweet', 'tweet')]
+user_features = [('user_is_verified','bool'),
+                ('user_posts', 'numeric'),
+                ('user_likes','numeric'),
+                ('user_followers', 'numeric'),
+                ('user_friends', 'numeric')]
+stats_features = [('emoji_count', 'numeric'),
+                ('polarity', 'numeric'),
+                ('subjectivity', 'numeric'),
+                ('hashtag_count', 'numeric'),
+                ('mentions_count', 'numeric'),
+                ('words_count', 'numeric'),
+                ('char_count', 'numeric'),
+                ('url_count', 'numeric'),
+                ('is_retweet', 'bool'),
+                ('tweet_likes', 'numeric'),
+                ('tweet_retweets', 'numeric'),
+                ('tweet_is_quote', 'bool')]
 options = {
     'classifiers': [
-        {'name': 'Logistic Regression', 'classifier': LogisticRegression(class_weight='balanced', penalty='l2', max_iter=500, solver='liblinear')}],
+        {'name': 'Logistic Regression', 'classifier': LogisticRegression(class_weight='balanced', solver='liblinear', random_state=42)},
+        {'name': 'Linear SVM', 'classifier': SVC(kernel='linear', probability=True, class_weight='balanced', random_state=42)},
+        {'name': 'Random Forest', 'classifier': RandomForestClassifier(class_weight='balanced', max_depth=8, n_estimators=200, random_state=42, n_jobs= -1)},
+        {'name': 'KNN', 'classifier': KNeighborsClassifier(n_neighbors=1, n_jobs= -1)}],
     'datasets': [
-        {'name': 't_davidson',
-         'df': t_davidson,
+        {'name': 'personal',
+         'df': personal,
          'targets': [
-             {'val': 0,'name': 'hate speech'},
-             {'val': 1,'name': 'offensive language'},
-             {'val': 2,'name': 'neither'}]
+             {'val': 0,'name': 'non-malicious'},
+             {'val': 1,'name': 'malicious'}]
         }],
     'vectorizers': [
-        {'name': 'TF IDF Vectorizer', 'vectorizer': tfidf}],
+        {'name': 'TF IDF Vectorizer', 'vectorizer': tfidf},
+        {'name': 'GloVe Word Embeddings', 'vectorizer': glove},
+        {'name': 'Doc2Vec Paragraph Embeddings', 'vectorizer': doc2vec}],
     'features': [
-        {'name': 'text', 'cols': textual_features},
-        {'name': 'text+user', 'cols': textual_features + user_features}],
+        {'name': 'text', 'cols': text_features},
+        {'name': 'text+stats', 'cols': text_features + stats_features},
+        {'name': 'text+user', 'cols': text_features + user_features},
+        {'name': 'text+user+stats', 'cols': text_features + user_features + stats_features}],
     'query_strategies': [
         {'name': 'Uncertainty Sampling', 'strategy': uncertainty_sampling},
         {'name': 'Entropy Sampling', 'strategy': entropy_sampling},
@@ -80,10 +99,13 @@ eval_scores = []
 seen = []
 
 for p in permutations:
-
-    pred = lambda x_y:(x:=x_y[0], y:=x_y[1], type(p['vectorizers']['vectorizer'] == type(x) and p['datasets'].equals(y)))
-
-    transformer, dataset = next(filter(pred, transformers), (p['vectorizers']['vectorizer'], p['datasets']))
+    transformer, dataset = None, None
+    for v, d in transformers:
+        if type(v) == type(p['vectorizers']['vectorizer']) and p['datasets']['name'] == d['name']:
+            transformer, dataset = v, d
+            break
+    if transformer is None or dataset is None: 
+        transformer, dataset = p['vectorizers']['vectorizer'], p['datasets']
     estimator = clone(p['classifiers']['classifier'])
     features = p.get('features')
     strategy = p.get('query_strategies')
@@ -110,7 +132,6 @@ for p in permutations:
                   columns=features['cols'],
                   vectorizer=transformer,
                   query_strategy=strategy['strategy'],
-                  n_queries=1000,
                   name=al_name,
                   targets=targets
                   )
@@ -119,5 +140,7 @@ for p in permutations:
     eval_scores.append(dict(al_results, name=al_name))
     del al
 print(json.dumps(eval_scores, indent=4))
-with open(f'results/results.json', 'w', encoding='utf-8') as f:
+with open(f'results/final/eval_results.json', 'w', encoding='utf-8') as f:
     json.dump(eval_scores, f, ensure_ascii=False, indent=4)
+
+# %%
