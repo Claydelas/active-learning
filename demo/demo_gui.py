@@ -26,20 +26,19 @@ doc2vec = Doc2Vec(vector_size=50, min_count=2, epochs=10)
 #%% ----------------------------------------------------------------tfidf
 tfidf = TfidfVectorizer(
     ngram_range=(1, 3),
-    decode_error='replace',
-    max_features=5000,
-    min_df=5,
+    max_features=8000,
+    min_df=1,
     max_df=0.75
     )
 #%% ----------------------------------------------------------------
 options = {
     'classifiers': [
-        {'name': 'Logistic Regression', 'classifier': LogisticRegression(class_weight='balanced', solver='liblinear', random_state=42, n_jobs= -1)},
+        {'name': 'Logistic Regression', 'classifier': LogisticRegression(class_weight='balanced', solver='liblinear', random_state=42)},
         {'name': 'Linear SVM', 'classifier': SVC(class_weight='balanced', kernel='linear', probability=True, random_state=42)},
         {'name': 'Random Forest', 'classifier': RandomForestClassifier(class_weight='balanced', random_state=42, n_jobs= -1)},
-        {'name': 'K Nearest Neighbors', 'classifier': KNeighborsClassifier(n_neighbors=1, n_jobs= -1)}],
+        {'name': 'K Nearest Neighbors', 'classifier': KNeighborsClassifier(n_neighbors=2, n_jobs= -1)}],
     'datasets': [
-        {'name': 'T Davidson Hate Speech/Offesnive Language',
+        {'name': 'T Davidson Hate Speech/Offensive Language',
          'df': t_davidson,
          'targets': [
              {'val': 0,'name': 'hate speech'},

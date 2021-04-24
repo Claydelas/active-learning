@@ -1,0 +1,2 @@
+To run the demos, one must download the necessary dataset and preprocess it with the _backend.preprocessing_ module.
+The original labeled dataset can be found @_https://github.com/t-davidson/hate-speech-and-offensive-language_.

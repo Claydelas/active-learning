@@ -1,15 +1,19 @@
-from logging import Logger
-from flask import Flask, request
-import modAL.uncertainty
-from flask_socketio import SocketIO
-from active_learning import ActiveLearning
 import logging
 import sys
 from copy import deepcopy
+from logging import Logger
+
+import modAL.uncertainty
+from flask import Flask, request
+from flask_socketio import SocketIO
+
+from active_learning import ActiveLearning
 
 
-class Server():
-    def __init__(self, learning: ActiveLearning = None, options = {}, logger: Logger = None):
+class Server:
+    def __init__(self, learning: ActiveLearning = None, options=None, logger: Logger = None):
+        if options is None:
+            options = {}
         self.learning = learning
         self.options = options
         if logger is None:
@@ -28,7 +32,6 @@ class Server():
         # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
         self.sio.run(self.app)
 
-
     def parse_options(self, options):
         classifier = next(filter(lambda c: c['name'] == options['classifier'], self.options['classifiers']), {}).get('classifier')
         dataset = next(filter(lambda d: d['name'] == options['dataset'], self.options['datasets']), {})
@@ -46,7 +49,6 @@ class Server():
                                  target_score=options.get('target'),
                                  name=f"{dataset.get('name')}-{classifier.__class__.__name__}-{vectorizer.__class__.__name__}-{query_strategy.__name__}-AL")
         self.learning.start(server=False)
-
 
     def init(self, learning):
         if learning is None:
@@ -120,7 +122,7 @@ class Server():
         def refresh():
             self.logger.info(f'{request.sid} requested refresh.')
             self.init(self.learning)
-        
+
         @self.sio.on('options')
         def build_model(options):
             if self.learning is None:

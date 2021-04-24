@@ -4,6 +4,7 @@ sys.path.insert(1, os.path.join(sys.path[0], '../backend'))
 
 from active_learning import ActiveLearning
 from learning import Learning
+import features
 
 from sklearn.feature_extraction.text import TfidfVectorizer
 
@@ -24,7 +25,7 @@ vectorizer = TfidfVectorizer(
     min_df=5,
     max_df=0.75
     )
-vectorizer = Learning.learn_text_model(vectorizer, t_davidson)
+vectorizer = features.learn_text_model(vectorizer, t_davidson)
 #%% ----------------------------------------------------------------
 baseline = Learning(LogisticRegression(class_weight='balanced', penalty='l2', max_iter=1000, C=0.01),
                     dataset=t_davidson,
