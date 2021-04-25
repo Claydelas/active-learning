@@ -1,6 +1,9 @@
 #%% ----------------------------------------------------------------imports
 import sys, os, json
-sys.path.insert(1, os.path.join(sys.path[0], '../backend'))
+ROOT = os.path.abspath( os.path.dirname(  __file__ ) )
+DATA_PATH = os.path.join( ROOT, '..', 'data' )
+
+sys.path.insert(1, os.path.join(ROOT, '..', 'backend'))
 
 from active_learning import ActiveLearning
 from learning import Learning
@@ -13,35 +16,35 @@ import modAL
 
 from sklearn.linear_model import LogisticRegression
 #%% ----------------------------------------------------------------dataset
-t_davidson = pd.read_pickle("data/processed/t-davidson_processed.pkl")
+p_path = os.path.join(DATA_PATH, "processed", "personal_processed.pkl")
+personal = pd.read_pickle(p_path)
 #%% ----------------------------------------------------------------tfidf
 vectorizer = TfidfVectorizer(
     ngram_range=(1, 3),
-    use_idf=True,
-    smooth_idf=False,
-    norm=None,
-    decode_error='replace',
-    max_features=10000,
-    min_df=5,
+    max_features=8000,
+    min_df=1,
     max_df=0.75
     )
-vectorizer = features.learn_text_model(vectorizer, t_davidson)
+vectorizer = features.learn_text_model(vectorizer, personal)
 #%% ----------------------------------------------------------------
-baseline = Learning(LogisticRegression(class_weight='balanced', penalty='l2', max_iter=1000, C=0.01),
-                    dataset=t_davidson,
+baseline = Learning(LogisticRegression(class_weight='balanced', solver='liblinear', random_state=42),
+                    dataset=personal,
                     columns=[('tweet', 'tweet')],
                     vectorizer=vectorizer,
-                    name='t-davidson-ML')
+                    name='personal-ML')
 baseline.start()
 results = baseline.results()[-1]
 target = results['macro avg']['f1-score']*100
 print(json.dumps(results, indent=4))
 #%% ----------------------------------------------------------------
-active = ActiveLearning(LogisticRegression(class_weight='balanced', penalty='l2', max_iter=1000, C=0.01),
-                    dataset=t_davidson,
+active = ActiveLearning(LogisticRegression(class_weight='balanced', solver='liblinear', random_state=42),
+                    dataset=personal,
                     columns=[('tweet', 'tweet')],
                     query_strategy=modAL.uncertainty.uncertainty_sampling,
                     vectorizer=vectorizer,
                     target_score=target,
-                    name='t-davidson-AL')
-active.start()
+                    n_queries=100,
+                    name='personal-AL')
+active.start(auto=True, server=False)
+results_al = active.results()
+print(json.dumps(results_al, indent=4))

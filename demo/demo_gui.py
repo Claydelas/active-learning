@@ -1,6 +1,9 @@
 #%% ----------------------------------------------------------------imports
 import sys, os
-sys.path.insert(1, os.path.join(sys.path[0], '../backend'))
+ROOT = os.path.abspath( os.path.dirname(  __file__ ) )
+DATA_PATH = os.path.join( ROOT, '..', 'data' )
+
+sys.path.insert(1, os.path.join(ROOT, '..', 'backend'))
 
 from sio_server import Server
 
@@ -17,8 +20,10 @@ from sklearn.svm import SVC
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.neighbors import KNeighborsClassifier
 #%% ----------------------------------------------------------------datasets
-t_davidson = pd.read_pickle("data/processed/t-davidson_processed.pkl")
-personal = pd.read_pickle("data/processed/personal_processed.pkl")
+t_path = os.path.join(DATA_PATH, "processed", "t-davidson_processed.pkl")
+p_path = os.path.join(DATA_PATH, "processed", "personal_processed.pkl")
+t_davidson = pd.read_pickle(t_path)
+personal = pd.read_pickle(p_path)
 #%% ----------------------------------------------------------------word embeddings
 glove = api.load('glove-twitter-25')
 #%% ----------------------------------------------------------------doc2vec

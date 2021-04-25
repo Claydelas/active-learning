@@ -13,7 +13,10 @@ import numpy as np
 import unittest
 unittest.TestLoader.sortTestMethodsUsing = None
 
-sys.path.insert(1, os.path.join(sys.path[0], '../backend'))
+ROOT = os.path.abspath( os.path.dirname(  __file__ ) )
+DATA_PATH = os.path.join( ROOT, '..', 'data' )
+
+sys.path.insert(1, os.path.join(ROOT, '..', 'backend'))
 
 from learning import Learning
 from active_learning import ActiveLearning
@@ -53,7 +56,8 @@ class TestLearning(unittest.TestCase):
                 ['Vivamus non mi eu diam gravida finibus vitae nec dui. Sed ac aliquam risus. Aenean convallis leo id nunc volutpat vulputate. Orci varius ex.', 100, 0, 1],
                 ['Morbi nec facilisis lectus. Curabitur ac dolor sed magna venenatis euismod. Ut enim mauris, commodo sit amet posuere quis, pellentesque vel.', 1500, 0, 2]]),
             columns=['text_feature', 'numeric_feature', 'bool_feature', 'target'])
-        cls.dataset = pd.read_csv("../data/personal/labeled_data.csv", sep='\t')
+        p_path = os.path.join(DATA_PATH, "personal", "labeled_data.csv")
+        cls.dataset = pd.read_csv(p_path, sep='\t')
         cls.learner = Learning(estimator=LogisticRegression(),
                                dataset=cls.dataset,
                                columns=text_features+user_features+stats_features,
@@ -145,7 +149,8 @@ class TestLearningAL(unittest.TestCase):
                 ['Vivamus non mi eu diam gravida finibus vitae nec dui. Sed ac aliquam risus. Aenean convallis leo id nunc volutpat vulputate. Orci varius ex.', 100, 0, 1],
                 ['Morbi nec facilisis lectus. Curabitur ac dolor sed magna venenatis euismod. Ut enim mauris, commodo sit amet posuere quis, pellentesque vel.', 1500, 0, 2]]),
             columns=['text_feature', 'numeric_feature', 'bool_feature', 'target'])
-        cls.dataset = pd.read_pickle("../data/processed/personal_processed.pkl")
+        p_path = os.path.join(DATA_PATH, "processed", "personal_processed.pkl")
+        cls.dataset = pd.read_pickle(p_path)
         cls.learner = ActiveLearning(estimator=LogisticRegression(),
                                      dataset=cls.dataset,
                                      columns=text_features+user_features+stats_features,
