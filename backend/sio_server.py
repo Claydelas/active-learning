@@ -32,7 +32,7 @@ class Server:
     def run(self):
         # Start Web Server + Socket.IO
         # thread = threading.Thread(target=lambda: self.sio.run(self.app)).start()
-        self.sio.run(self.app)
+        self.sio.run(self.app, port=5000, host='0.0.0.0')
 
     def parse_options(self, options):
         classifier = next(filter(lambda c: c['name'] == options['classifier'], self.options['classifiers']), {}).get('classifier')
@@ -158,7 +158,7 @@ class Server:
         @self.sio.on('checkpoint')
         def checkpoint():
             if self.learning is None: return "Model is not initialised."
-            path = f"data/{re.sub(r'/', ' ' , self.learning.name)}-{int(time.time())}.pkl"
+            path = f"{re.sub(r'/', ' ' , self.learning.name)}-{int(time.time())}.pkl"
             self.learning.save(path)
             return f"Dataset saved as {path}."
 

@@ -1,0 +1,15 @@
+Flask_SocketIO==5.0.1
+wordcloud==1.8.1
+demoji==0.4.0
+gensim==3.8.3
+nltk==3.5
+numpy==1.18.5
+scipy==1.5.0
+Flask==1.1.2
+textblob==0.15.3
+matplotlib==3.2.2
+pandas==1.2.1
+beautifulsoup4==4.9.3
+modAL==0.4.1
+scikit_learn==0.24.1
+eventlet==0.30.2

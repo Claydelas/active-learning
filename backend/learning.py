@@ -10,9 +10,9 @@ from sklearn.metrics import f1_score, classification_report
 from sklearn.model_selection import train_test_split
 
 import preprocess as p
-# base class for learning processes
 from features import Vectorizer, learn_text_model, build_features
 
+ROOT = os.path.abspath( os.path.dirname(  __file__ ) )
 
 class Learning:
     def __init__(self,
@@ -107,15 +107,17 @@ class Learning:
         return classification_report(y_pred=self.estimator.predict(X), y_true=y, target_names=targets, output_dict=True)
 
     def save(self, path: str):
-        if not os.path.exists('data/processed'):
-            os.makedirs('data/processed')
-        self.dataset.to_pickle(path)
+        output = os.path.join(ROOT, "..", "data" , "checkpoints")
+        if not os.path.exists(output):
+            os.makedirs(output)
+        self.dataset.to_pickle(os.path.join(output, path))
 
     def results(self, name: str = '', save: bool = False):
         if save:
-            if not os.path.exists('results'):
-                os.makedirs('results')
-            with open(f'results/{name or self.name}.json', 'w', encoding='utf-8') as f:
+            output = os.path.join(ROOT, "../results")
+            if not os.path.exists(output):
+                os.makedirs(output)
+            with open(os.path.join(output, f'{name or self.name}.json'), 'w', encoding='utf-8') as f:
                 if len(self.accuracy_scores) > 0:
                     json.dump(self.accuracy_scores, f, ensure_ascii=False, indent=4)
                     return self.accuracy_scores
