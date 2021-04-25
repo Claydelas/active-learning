@@ -3,6 +3,7 @@ import Model from './Model';
 import ModelConfig from './ModelConfig';
 import { useState, useEffect } from 'react';
 import { responsiveFontSizes, unstable_createMuiStrictModeTheme as createMuiTheme } from '@material-ui/core/styles';
+import { useToasts } from 'react-toast-notifications'
 
 
 const io = require("socket.io-client");
@@ -11,6 +12,7 @@ export const socket = io('http://127.0.0.1:5000', { transports: ['websocket'] })
 function App() {
 
     const [loading, setLoading] = useState(false)
+    const { addToast } = useToasts();
 
     const [model, setModel] = useState({
         tweet: { idx: -1, text: "Tweet text will be displayed here" },
@@ -58,6 +60,8 @@ function App() {
 
     useEffect(() => {
         socket.on("disconnect", () => {
+            setLoading(false);
+            addToast('Lost connection to the server! Attempting to reconnect...', { appearance: 'warning' });
             setModel(m => {
                 return { ...m, initialised: false }
             })
@@ -68,7 +72,13 @@ function App() {
                 query_strategies: []
             })
         })
-    }, [])
+    }, [addToast])
+
+    useEffect(() => {
+        socket.on("connect", () => {
+            addToast('Successfully connected to the server!', { appearance: 'success' })
+        })
+    }, [addToast])
 
     const darkTheme = responsiveFontSizes(createMuiTheme({
         palette: {
@@ -90,12 +100,14 @@ function App() {
                         loading={loading}
                         setLoading={setLoading}
                         theme={darkTheme}
+                        addToast={addToast}
                     /> :
                     <ModelConfig
                         options={options}
                         loading={loading}
                         setLoading={setLoading}
                         theme={darkTheme}
+                        addToast={addToast}
                     />}
             </div>
         </div>

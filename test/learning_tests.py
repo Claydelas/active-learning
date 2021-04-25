@@ -124,6 +124,9 @@ class TestLearning(unittest.TestCase):
         self.assertEqual(feature_matrix.shape[1], cols)
         self.assertFalse(sp.issparse(feature_matrix))
 
+        with self.assertRaises(Exception):
+            features.build_features(self.mock, [], self.tfidf)
+
     def test_5_fit(self):
         classifier = self.learner.estimator
         with self.assertRaises(NotFittedError):

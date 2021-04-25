@@ -1,5 +1,7 @@
 import logging
 import sys
+import time
+import re
 from copy import deepcopy
 from logging import Logger
 
@@ -38,9 +40,15 @@ class Server:
         vectorizer = next(filter(lambda v: v['name'] == options['vectorizer'], self.options['vectorizers']), {}).get('vectorizer')
         query_strategy = next(filter(lambda q: q['name'] == options['query_strategy'], self.options['query_strategies']), {}).get('strategy')
         features = sum(filter(None, [next(filter(lambda f: f['name'] == key, self.options['features']), {}).get('cols') if val else [] for key, val in options['features'].items()]), [])
-        if (not features) or (classifier is None) or (dataset is None) or (vectorizer is None) or (query_strategy is None): return
+        if not features: return "No features were selected."
+        if classifier is None: return "Selected classifier isn't supported."
+        if dataset is None: return "Dataset doesn't exist."
+        if vectorizer is None: return "Selected vectorizer isn't supported."
+        if query_strategy is None: return "Query strategy isn't supported."
+        dataset_df = dataset.get('df')
+        if not bool(set([f[0] for f in features]).intersection(dataset.get('df').columns)): return "Dataset doesn't seem to contain any of the selected features."
         self.learning = ActiveLearning(estimator=classifier,
-                                 dataset=dataset.get('df'),
+                                 dataset=dataset_df,
                                  columns=features,
                                  vectorizer=deepcopy(vectorizer),
                                  learn_vectorizer=True,
@@ -49,6 +57,7 @@ class Server:
                                  target_score=options.get('target'),
                                  name=f"{dataset.get('name')}-{classifier.__class__.__name__}-{vectorizer.__class__.__name__}-{query_strategy.__name__}-AL")
         self.learning.start(server=False)
+        return "Success."
 
     def init(self, learning):
         if learning is None:
@@ -125,14 +134,15 @@ class Server:
 
         @self.sio.on('options')
         def build_model(options):
+            success = False
             if self.learning is None:
-                self.parse_options(options)
+                success = self.parse_options(options)
                 self.init(self.learning)
-            return True
+            return success or "Model is already initialised."
 
         @self.sio.on('label')
         def label(tweet):
-            if self.learning is None: return True
+            if self.learning is None: return "Model is not initialised."
             success = self.learning.teach(tweet, hashed=True)
             if success:
                 self.query(self.learning)
@@ -140,17 +150,17 @@ class Server:
 
         @self.sio.on('skip')
         def skip(tweet):
-            if self.learning is None: return
+            if self.learning is None: return "Model is not initialised."
             success = self.learning.skip(tweet, hashed=True)
             if success:
                 self.query(self.learning)
 
         @self.sio.on('checkpoint')
         def checkpoint():
-            if self.learning is None: return
-            path = f"data/{self.learning.name}_cp.pkl"
+            if self.learning is None: return "Model is not initialised."
+            path = f"data/{re.sub(r'/', ' ' , self.learning.name)}-{int(time.time())}.pkl"
             self.learning.save(path)
-            return f"Dataset saved @{path}"
+            return f"Dataset saved as {path}."
 
         @self.sio.on('reset')
         def reset():

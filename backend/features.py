@@ -25,6 +25,7 @@ def build_features(pool: DataFrame, columns: List[Tuple[str, str]], vectorizer: 
                 blocks.append(x)
             elif f_type == 'bool':
                 blocks.append(pool[column].apply(lambda val: 1 if val else 0).values.reshape(-1, 1))
+    if not blocks: raise Exception("Feature set can't be empty.")
     X = data_hstack(blocks)
     if sp.issparse(X):
         return X.tocsr()

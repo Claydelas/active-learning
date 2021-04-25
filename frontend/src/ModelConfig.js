@@ -6,7 +6,7 @@ import { ThemeProvider, makeStyles } from '@material-ui/core/styles';
 import Loader from "react-loader-spinner";
 
 
-function ModelConfig({ options, loading, setLoading, theme }) {
+function ModelConfig({ options, loading, setLoading, theme, addToast }) {
   const useStyles = makeStyles((theme) => ({
     select: {
       minWidth: 400,
@@ -189,7 +189,10 @@ function ModelConfig({ options, loading, setLoading, theme }) {
               features: features,
               target: target
             }, (success) => {
-              setLoading(!success)
+              setLoading(false)
+              if (success !== 'Success.') {
+                addToast(success, { appearance: 'error' })
+              }
             })
           }
         }}

@@ -15,9 +15,10 @@ function skip(tweet) {
   socket.emit("skip", { 'idx': tweet.idx, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') });
 }
 
-function refresh() {
+function refresh(addToast) {
   console.log('refresh');
   socket.emit("refresh");
+  addToast("Requested up-to-date information from the server.", { appearance: 'success' })
 }
 
 function save(scores) {
@@ -30,13 +31,18 @@ function save(scores) {
   a.click();
 }
 
-function checkpoint() {
+function checkpoint(addToast) {
   socket.emit("checkpoint", function (data) {
-    console.log(data);
-  })
+    if (data !== "Model is not initialised.") {
+      addToast(data, { appearance: 'success' })
+    } else {
+      addToast(data, { appearance: 'error' })
+    }
+  }
+  )
 }
 
-function Model({ model, setModel, loading, setLoading, theme }) {
+function Model({ model, setModel, loading, setLoading, theme, addToast }) {
 
   function label(tweet, label) {
     console.log(`"${tweet.text}" --> ${label}`);
@@ -44,8 +50,11 @@ function Model({ model, setModel, loading, setLoading, theme }) {
     setTimeout(() => { if (sent) setLoading(true) }, 200);
     socket.emit("label", { 'idx': tweet.idx, 'label': label, 'hash': crypto.createHash('md5').update(tweet.text).digest('hex') },
       (done) => {
-        sent = !done
-        setLoading(!done)
+        if (typeof done === "string") {
+          addToast(done, { appearance: 'error' })
+        }
+        sent = false
+        setLoading(false)
       });
   }
 
@@ -108,8 +117,8 @@ function Model({ model, setModel, loading, setLoading, theme }) {
       <div className="buttons">
         <button className="button" onClick={() => skip(model.tweet)} disabled={model.tweet.idx < 0}>Skip</button>
         <button className="button" onClick={() => save(model.scoreSeries)} disabled={!model.scoreSeries.length}>Save</button>
-        <button className="button" onClick={() => checkpoint()} disabled={model.tweet.idx < 0}>⚑</button>
-        <button className="button" onClick={() => refresh()}>↻</button>
+        <button className="button" onClick={() => checkpoint(addToast)} disabled={model.tweet.idx < 0}>⚑</button>
+        <button className="button" onClick={() => refresh(addToast)}>↻</button>
         <button className="button" onClick={() => setResetDialog(true)}>Reset</button>
       </div>
       {!model.scoreSeries.length ? null :
@@ -173,9 +182,13 @@ function Model({ model, setModel, loading, setLoading, theme }) {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => {
-            socket.emit('reset', (reset) => setModel(m => {
-              return { ...m, initialised: (!reset) }
-            }));
+            socket.emit('reset', (reset) => {
+              setModel(m => {
+                return { ...m, initialised: (!reset) }
+              })
+              addToast("Classification model was successfully reset.", { appearance: 'success' })
+            }
+            );
           }} color="primary">
             Proceed
           </Button>
