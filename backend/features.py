@@ -31,9 +31,7 @@ def build_features(pool: DataFrame, columns: List[Tuple[str, str]], vectorizer: 
         return X.tocsr()
     return X
 
-    # utility function that provides a uniform method for vectorizing text via different vectorizers
-
-
+# utility function that provides a uniform method for vectorizing text via different vectorizers
 def _vectorize_(documents, vectorizer: Vectorizer):
     if isinstance(vectorizer, TfidfVectorizer):
         return vectorizer.transform(documents)
